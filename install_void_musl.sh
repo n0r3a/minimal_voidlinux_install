@@ -23,21 +23,29 @@ get_user_input() {
 # Function to create partitions using fdisk
 create_partitions_fdisk() {
   echo "Creating partitions with fdisk..."
-  echo "o # Create a new empty DOS partition table" | fdisk "$DISK"
-  echo "n # Add a new partition" | fdisk "$DISK"
-  echo "p # Primary partition" | fdisk "$DISK"
-  echo "1 # Partition number 1" | fdisk "$DISK"
-  echo " # Default first sector" | fdisk "$DISK"
-  echo "+200M" | fdisk "$DISK" # EFI partition size is 200M
-  echo "t # Change a partition's system type" | fdisk "$DISK"
-  echo "1 # Select partition 1" | fdisk "$DISK"
-  echo "1 # EFI System" | fdisk "$DISK"
-  echo "n # Add a new partition" | fdisk "$DISK"
-  echo "p # Primary partition" | fdisk "$DISK"
-  echo "2 # Partition number 2" | fdisk "$DISK"
-  echo " # Default first sector" | fdisk "$DISK"
-  echo " # Use all remaining space" | fdisk "$DISK" #root partition takes the rest.
-  echo "w # Write table to disk and exit" | fdisk "$DISK"
+  fdisk "$DISK" <<EOFDISK
+o
+n
+p
+1
+
++200M
+t
+1
+1
+n
+p
+2
+
+w
+EOFDISK
+
+  # Check if partitions were created
+  if [[ -b "${DISK}1" && -b "${DISK}2" ]]; then
+    echo "Partitions created successfully."
+  else
+    error_exit "Failed to create partitions."
+  fi
 
   # Update partitions
   blockdev --rereadpt "$DISK" || error_exit "blockdev --rereadpt failed"
@@ -114,3 +122,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
