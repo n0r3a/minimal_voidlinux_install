@@ -122,4 +122,3 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
-
