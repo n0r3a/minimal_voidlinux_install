@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# UEFI Full Disk Encryption Installation Script (/ and /boot only, automated fdisk)
+# UEFI Full Disk Encryption Installation Script (/ only, automated fdisk)
 
 # Warning: This script will overwrite data on your drive. Make sure you have backed up any important data.
 
@@ -20,13 +20,6 @@ get_user_input() {
   read -p "Enter the name for your encrypted root volume (e.g., luks_void): " VOLUME_NAME_ROOT
 }
 
-# Function to get user input for partition sizes
-get_partition_sizes() {
-  read -p "Enter the size for the EFI System Partition (e.g., 200M): " EFI_SIZE
-  read -p "Enter the size for the boot partition (e.g., 200M): " BOOT_SIZE
-  read -p "Enter the size for the root partition (e.g., 10G): " ROOT_SIZE
-}
-
 # Function to create partitions using fdisk
 create_partitions_fdisk() {
   echo "Creating partitions with fdisk..."
@@ -35,7 +28,7 @@ create_partitions_fdisk() {
   echo "p # Primary partition" | fdisk "$DISK"
   echo "1 # Partition number 1" | fdisk "$DISK"
   echo " # Default first sector" | fdisk "$DISK"
-  echo "+$EFI_SIZE" | fdisk "$DISK"
+  echo "+200M" | fdisk "$DISK" # EFI partition size is 200M
   echo "t # Change a partition's system type" | fdisk "$DISK"
   echo "1 # Select partition 1" | fdisk "$DISK"
   echo "1 # EFI System" | fdisk "$DISK"
@@ -43,90 +36,82 @@ create_partitions_fdisk() {
   echo "p # Primary partition" | fdisk "$DISK"
   echo "2 # Partition number 2" | fdisk "$DISK"
   echo " # Default first sector" | fdisk "$DISK"
-  echo "+$BOOT_SIZE" | fdisk "$DISK"
-  echo "n # Add a new partition" | fdisk "$DISK"
-  echo "p # Primary partition" | fdisk "$DISK"
-  echo "3 # Partition number 3" | fdisk "$DISK"
-  echo " # Default first sector" | fdisk "$DISK"
-  echo "+$ROOT_SIZE" | fdisk "$DISK"
+  echo " # Use all remaining space" | fdisk "$DISK" #root partition takes the rest.
   echo "w # Write table to disk and exit" | fdisk "$DISK"
 
   # Update partitions
-  partprobe "$DISK"
+  partprobe "$DISK" || error_exit "partprobe failed"
 
   EFI_PARTITION="${DISK}1"
-  BOOT_PARTITION="${DISK}2"
-  ROOT_PARTITION="${DISK}3"
+  ROOT_PARTITION="${DISK}2"
 }
 
 # Get user input
 get_user_input
-get_partition_sizes
 
 # Create partitions using fdisk
 create_partitions_fdisk
 
 # Format the EFI partition
-mkfs.vfat "$EFI_PARTITION"
+mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # Encrypted volume configuration
 echo "Encrypting $ROOT_PARTITION..."
-cryptsetup luksFormat --type luks1 "$ROOT_PARTITION"
+cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
-cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT"
+cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 echo "Creating filesystems..."
-mkfs.xfs -L root "/dev/mapper/$VOLUME_NAME_ROOT"
-mkfs.xfs "$BOOT_PARTITION"
+mkfs.xfs -L root "/dev/mapper/$VOLUME_NAME_ROOT" || error_exit "mkfs.xfs root failed"
 
 # System installation
 echo "Mounting filesystems..."
-mount "/dev/mapper/$VOLUME_NAME_ROOT" /mnt
+mount "/dev/mapper/$VOLUME_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot
-mount "$BOOT_PARTITION" /mnt/boot
 mkdir -p /mnt/boot/efi
-mount "$EFI_PARTITION" /mnt/boot/efi
+mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
 
 echo "Copying RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
-cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
+cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
 echo "Installing base system..."
-xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi
+xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_exit "xbps-install failed"
 
 # Configuration
 echo "Generating fstab..."
-xgenfstab /mnt > /mnt/etc/fstab
+xgenfstab /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 
 # Entering the Chroot
 echo "Entering chroot..."
 xchroot /mnt <<EOF
-chown root:root /
-chmod 755 /
-passwd root
-echo "voidvm" > /etc/hostname
-echo "LANG=$LOCALE" > /etc/locale.conf
-echo "$LOCALE UTF-8" >> /etc/default/libc-locales
-xbps-reconfigure -f glibc-locales
-echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
+chown root:root / || echo "chown failed"
+chmod 755 / || echo "chmod failed"
+passwd root || echo "passwd failed"
+echo "voidvm" > /etc/hostname || echo "hostname failed"
+echo "LANG=$LOCALE" > /etc/locale.conf || echo "locale.conf failed"
+echo "$LOCALE UTF-8" >> /etc/default/libc-locales || echo "libc-locales failed"
+xbps-reconfigure -f glibc-locales || echo "xbps-reconfigure glibc-locales failed"
+echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
-sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub
-dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
-cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key
-chmod 000 /boot/volume.key
-chmod -R g-rwx,o-rwx /boot
-echo "$VOLUME_NAME_ROOT   $ROOT_PARTITION   /boot/volume.key   luks" >> /etc/crypttab
-mkdir -p /etc/dracut.conf.d
-echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf
-grub-install "$DISK"
-xbps-reconfigure -fa
+sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
+dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
+cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup failed"
+chmod 000 /boot/volume.key || echo "chmod volume key failed"
+chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
+echo "$VOLUME_NAME_ROOT  $ROOT_PARTITION  /boot/volume.key  luks" >> /etc/crypttab || echo "crypttab failed"
+mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
+echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
+grub-install "$DISK" || echo "grub install failed"
+xbps-reconfigure -fa || echo "xbps-reconfigure -fa failed"
 exit
 EOF
 
 # Unmount and reboot
 echo "Unmounting filesystems..."
-umount -R /mnt
+umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
