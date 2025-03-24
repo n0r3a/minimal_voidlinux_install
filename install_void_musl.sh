@@ -40,7 +40,7 @@ create_partitions_fdisk() {
   echo "w # Write table to disk and exit" | fdisk "$DISK"
 
   # Update partitions
-  partprobe "$DISK" || error_exit "partprobe failed"
+  blockdev --rereadpt "$DISK" || error_exit "blockdev --rereadpt failed"
 
   EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
@@ -114,4 +114,3 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
-
