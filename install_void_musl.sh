@@ -15,9 +15,9 @@ error_exit() {
 # Function to get user input for variables
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/sda): " DISK
-  read -s -p "Enter the password for the encrypted volume: " ROOT_PASSPHRASE
+  read -s -p "Enter the passphrase for the luks partition: " ROOT_PASSPHRASE
   echo ""
-  read -s -p "Re-enter the password for the encrypted volume: " ROOT_PASSWORD_CONFIRM
+  read -s -p "Re-enter the passphrase for the luks partition: " ROOT_PASSPHRASE_CONFIRM
   echo ""
   if [[ "$ROOT_PASSPHRASE" != "$ROOT_PASSPHRASE_CONFIRM" ]]; then
     error_exit "Passwords do not match."
