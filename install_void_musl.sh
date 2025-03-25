@@ -38,10 +38,28 @@ create_partitions_fdisk() {
   echo "Creating partitions with fdisk..."
 
   # Create the EFI partition
-  echo -e "n\np\n1\n2048\n264191\nt\n1\n1\na\n1\nw\n" | fdisk "$DISK" || error_exit "fdisk efi failed"
+  fdisk "$DISK" <<EOF
+  n
+  p
+  1
+  2048
+  264191
+  t
+  1
+  1
+  a
+  1
+  w
+  EOF || error_exit "fdisk efi failed"
 
   # Create the root partition
-  echo -e "n\np\n2\n264192\n\nw\n" | fdisk "$DISK" || error_exit "fdisk root failed"
+  fdisk "$DISK" <<EOF
+  n
+  p
+  2
+  264192
+  w
+  EOF || error_exit "fdisk root failed"
 
   # Update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
