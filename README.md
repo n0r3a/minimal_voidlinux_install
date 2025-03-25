@@ -1,6 +1,6 @@
-# Minimal Void Linux Installer (UEFI x86_64)
+## Minimal Void Linux Install (UEFI x86_64)
 
-This is a simple script to install Void Linux on UEFI x86_64 systems. It's for people who want a minimal FDE setup without LVM and "fancy" filesystems like Btrfs
+This is a simple script to install Void Linux muslon UEFI x86_64 systems. It's for people who want a minimal FDE setup without LVM and "fancy" filesystems like Btrfs
 
 **Disclaimer:**
 
@@ -22,7 +22,7 @@ I made this script because I prefer a straightforward setup on my laptop. I like
     ```
 4.  **Clone the Repository:** Clone this repository using git:
     ```bash
-    git clone [https://github.com/n0r3a/minimal_voidlinux_install](https://github.com/n0r3a/minimal_voidlinux_install)
+    git clone https://github.com/n0r3a/minimal_voidlinux_install
     ```
 5.  **Go to the Directory:** Change to the repository directory:
     ```bash
@@ -41,10 +41,10 @@ I made this script because I prefer a straightforward setup on my laptop. I like
 10. **Add LUKS Key:** Enter the LUKS passphrase again, twice, to add it as a key for /boot
 11. **Choose to Reboot:** The script will ask if you want to reboot or stay in the live environment
 12. **Enjoy Void Linux with FDE!** That's it! Your system is now installed
-13. **Remember to change your computer's hostname, and check the network setup instructions on the Void Linux website
+12. **Remember to change your computer's hostname, and check the network setup instructions on the Void Linux website**
+
 ## Notes
 
 * Make sure to back up any important data on your disk before running this script, as it will overwrite the data
 * Be very careful with your passwords and passphrases. Keep them safe!
 * If you have any questions or find any problems, please create an issue on GitHub
-
