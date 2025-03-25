@@ -14,7 +14,7 @@ error_exit() {
 
 # Function to get user input for variables
 get_user_input() {
-  read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
+  read -p "Enter the disk you want to use (e.g., /dev/sda): " DISK
   read -s -p "Enter the password for the encrypted volume: " VOLUME_PASSWORD
   echo ""
   read -s -p "Re-enter the password for the encrypted volume: " VOLUME_PASSWORD_CONFIRM
