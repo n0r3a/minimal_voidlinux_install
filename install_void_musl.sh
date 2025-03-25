@@ -111,6 +111,10 @@ if [[ "$VOLUME_PASSWORD1" != "$VOLUME_PASSWORD2" ]]; then
   exit 1 # Exit the script if passwords don't match
 fi
 
+# Get the UUID before entering chroot
+ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
+echo "root partition uuid: $ROOT_UUID"
+
 # Entering the Chroot
 echo "Entering chroot..."
 xchroot /mnt /bin/bash <<EOF || error_exit "xchroot failed"
@@ -122,11 +126,7 @@ $ROOT_PASSWORD
 PASSWD_EOF
 echo "voidvm" > /etc/hostname
 echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
-ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
-echo "root partition uuid: $ROOT_UUID"
-sleep 2
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"" >> /etc/default/grub
-sleep 2
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
 echo "$VOLUME_PASSWORD1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
