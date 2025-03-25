@@ -16,7 +16,7 @@ error_exit() {
 
 # Function to get user input for variables
 get_user_input() {
-  read -p "Enter the disk you want to use (e.g., /dev/sda): " DISK
+  read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
 }
 
 # Function to create partitions using parted
@@ -41,6 +41,10 @@ create_partitions_parted() {
 
   EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
+
+  #Debugging information
+  echo "Checking for partitions"
+  lsblk "$DISK"
 }
 
 # Get user input
