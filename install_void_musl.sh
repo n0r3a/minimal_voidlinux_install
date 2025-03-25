@@ -6,7 +6,7 @@
 
 # Variables
 REPO_URL="https://repo-default.voidlinux.org/current/musl"
-VOLUME_NAME_ROOT="voidvm" #Use voidvm matching void docs
+LUKS_NAME_ROOT="luks_void"
 
 # Function to handle errors
 error_exit() {
@@ -75,14 +75,14 @@ echo "Encrypting $ROOT_PARTITION..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
-echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
+echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 echo "Creating filesystems..."
-mkfs.xfs -L root "/dev/mapper/$VOLUME_NAME_ROOT" || error_exit "mkfs.xfs root failed"
+mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
 
 # System installation
 echo "Mounting filesystems..."
-mount "/dev/mapper/$VOLUME_NAME_ROOT" /mnt || error_exit "mount root failed"
+mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot
 mkdir -p /mnt/boot/efi
 mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
@@ -119,14 +119,11 @@ $VOLUME_PASSWORD
 CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "$VOLUME_NAME_ROOT $ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
+echo "$LUKS_NAME_ROOT $ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
 grub-mkconfig -o /boot/grub/grub.cfg
-sed -i "s|/dev/mapper/$VOLUME_NAME_ROOT|/dev/$ROOT_PARTITION|g" /etc/fstab || echo "sed fstab failed"
-echo "/dev/$ROOT_PARTITION / xfs defaults" > /etc/fstab || echo "fstab failed"
-echo "/dev/$EFI_PARTITION /boot/efi vfat defaults" >> /etc/fstab || echo "fstab efi failed"
 xbps-reconfigure -fa || echo "xbps-reconfigure failed"
 exit
 EOF
