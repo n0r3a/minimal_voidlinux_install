@@ -72,10 +72,10 @@ mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # Encrypted volume configuration
 echo "Encrypting $ROOT_PARTITION..."
-cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" --key-file - <<< "$VOLUME_PASSWORD" || error_exit "cryptsetup luksFormat failed"
+echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
-cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT" --key-file - <<< "$VOLUME_PASSWORD" || error_exit "cryptsetup luksOpen failed"
+echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 echo "Creating filesystems..."
 mkfs.xfs -L root "/dev/mapper/$VOLUME_NAME_ROOT" || error_exit "mkfs.xfs root failed"
