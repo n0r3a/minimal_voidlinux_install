@@ -86,6 +86,7 @@ mount "/dev/mapper/$VOLUME_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot
 mkdir -p /mnt/boot/efi
 mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
+ls /mnt/boot/efi/ # Added debugging line
 
 echo "Copying RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
@@ -122,6 +123,10 @@ echo "$VOLUME_NAME_ROOT$ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab |
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install "$DISK" || echo "grub install failed"
+ls /boot/efi/EFI/void/ # Added debugging line
+grub-mkconfig -o /boot/grub/grub.cfg # added grub config debug
+cat /etc/crypttab # added crypttab debug
+blkid "$ROOT_PARTITION" # added blkid debug
 xbps-reconfigure -fa || echo "xbps-reconfigure -fa failed"
 exit
 EOF
