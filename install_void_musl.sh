@@ -99,6 +99,18 @@ echo "Generating fstab..."
 xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 sleep 5 # Add a 5-second delay
 
+# Get the password before entering chroot
+read -s -p "Enter passphrase: " VOLUME_PASSWORD1
+echo ""
+read -s -p "Verify passphrase: " VOLUME_PASSWORD2
+echo ""
+
+# get the password before xchroot
+if [[ "$VOLUME_PASSWORD1" != "$VOLUME_PASSWORD2" ]]; then
+  echo "Passphrases do not match. Exiting."
+  exit 1 # Exit the script if passwords don't match
+fi
+
 # Entering the Chroot
 echo "Entering chroot..."
 xchroot /mnt /bin/bash <<EOF || error_exit "xchroot failed"
@@ -115,16 +127,7 @@ echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
-read -s -p "Enter passphrase: " VOLUME_PASSWORD1
-echo ""
-read -s -p "Verify passphrase: " VOLUME_PASSWORD2
-echo ""
-
-if [[ "$VOLUME_PASSWORD1" == "$VOLUME_PASSWORD2" ]]; then
-  echo "$VOLUME_PASSWORD1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
-else
-  echo "Passphrases do not match. Please try again."
-fi
+echo "$VOLUME_PASSWORD1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
 sleep 2
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
