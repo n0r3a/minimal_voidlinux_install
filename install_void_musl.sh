@@ -115,9 +115,16 @@ echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
-cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key <<CRYPT_EOF || echo "cryptsetup addkey failed"
-$VOLUME_PASSWORD
-CRYPT_EOF
+read -s -p "Enter passphrase: " VOLUME_PASSWORD1
+echo ""
+read -s -p "Verify passphrase: " VOLUME_PASSWORD2
+echo ""
+
+if [[ "$VOLUME_PASSWORD1" == "$VOLUME_PASSWORD2" ]]; then
+  echo "$VOLUME_PASSWORD1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
+else
+  echo "Passphrases do not match. Please try again."
+fi
 sleep 2
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
