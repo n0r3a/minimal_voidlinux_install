@@ -126,7 +126,7 @@ grub-mkconfig -o /boot/grub/grub.cfg
 exit
 EOF
 
-parted "$DISK" set 1 boot on || echo "parted boot flag failed" #moved to outside of chroot
+parted "$DISK" set 1 boot on || echo "parted boot flag failed"
 
 # Unmount and reboot
 echo "Unmounting filesystems..."
