@@ -85,9 +85,9 @@ configure_system() {
     echo "$VOLUME_NAME /dev/sda2 /boot/volume.key luks" >> /etc/crypttab || error_exit "crypttab failed"
     mkdir -p /etc/dracut.conf.d || error_exit "mkdir dracut failed"
     echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || error_exit "dracut conf failed"
-    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || error_exit "grub install failed"
+    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void --removable "$DISK" || error_exit "grub install failed"
     grub-mkconfig -o /boot/grub/grub.cfg || error_exit "grub mkconfig failed"
-    exit
+    xbps-reconfigure -fa || error_exit "xbps-reconfigure failed"
 EOF
 }
 
@@ -103,4 +103,3 @@ echo "Unmounting filesystems..."
 umount -R /mnt || error_exit "umount failed"
 echo "Rebooting..."
 #reboot
-
