@@ -29,7 +29,7 @@ get_user_input() {
   read -s -p "Re-enter the root password: " ROOT_PASSWORD_CONFIRM
   echo ""
   if [[ "$ROOT_PASSWORD" != "$ROOT_PASSWORD_CONFIRM" ]]; then
-    error_exit "Root passwords do't match."
+    error_exit "Root passwords do not match."
   fi
 }
 
@@ -124,6 +124,9 @@ mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
 grub-mkconfig -o /boot/grub/grub.cfg
+sed -i "s|/dev/mapper/$VOLUME_NAME_ROOT|/dev/$ROOT_PARTITION|g" /etc/fstab || echo "sed fstab failed"
+echo "/dev/$ROOT_PARTITION / xfs defaults" > /etc/fstab || echo "fstab failed"
+echo "/dev/$EFI_PARTITION /boot/efi vfat defaults" >> /etc/fstab || echo "fstab efi failed"
 xbps-reconfigure -fa || echo "xbps-reconfigure failed"
 exit
 EOF
