@@ -135,6 +135,12 @@ echo "$LUKS_NAME_ROOT $ROOT_PARTITION /boot/volume.key luks" > /etc/crypttab
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf
 grub-install "$DISK"
 xbps-reconfigure -fa
+sleep 2
+echo "editing fstab"
+sleep 2
+echo "$EFI_PARTITION /boot/efi vfat defaults 0 0" > /etc/fstab
+echo "/dev/$ROOT_PARTITION / xfs defaults 0 0" >> /etc/fstab
+
 exit
 EOF
 
