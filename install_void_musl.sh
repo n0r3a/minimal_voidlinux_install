@@ -115,7 +115,9 @@ echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
-cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key
+cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key <<CRYPT_EOF || echo "cryptsetup addkey failed"
+$VOLUME_PASSWORD
+CRYPT_EOF
 sleep 2
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
