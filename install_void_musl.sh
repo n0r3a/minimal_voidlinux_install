@@ -96,7 +96,7 @@ xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi |
 
 # Configuration
 echo "Generating fstab..."
-xgenfstab /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
+xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 
 # Entering the Chroot
 echo "Entering chroot..."
@@ -112,7 +112,7 @@ echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 EFI_UUID=$(blkid -o value -s UUID "$EFI_PARTITION")
 echo "root partition uuid: $ROOT_UUID"
-sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
+sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID nomodeset\"/" /etc/default/grub || echo "sed grub failed"
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
 cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key --key-file - <<CRYPT_EOF
 $VOLUME_PASSWORD
@@ -124,6 +124,13 @@ mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
 grub-mkconfig -o /boot/grub/grub.cfg
+echo "#" > /etc/fstab
+echo "# See fstab(5)." >> /etc/fstab
+echo "#" >> /etc/fstab
+echo "# <file system>    <dir>    <type>    <options>        <dump>    <pass>" >> /etc/fstab
+echo "tmpfs            /tmp    tmpfs    defaults,nosuid,nodev    0        0" >> /etc/fstab
+echo "/dev/$EFI_PARTITION    /boot/efi    vfat    defaults    0    0" >> /etc/fstab
+echo "/dev/$ROOT_PARTITION    /    xfs    defaults    0    0" >> /etc/ftab
 xbps-reconfigure -fa || echo "xbps-reconfigure failed"
 exit
 EOF
