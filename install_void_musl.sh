@@ -151,5 +151,20 @@ sleep 5
 echo "Unmounting filesystems..."
 umount -R /mnt || error_exit "umount failed"
 
-echo "Rebooting..."
-#reboot
+# Add select function
+select choice in "Reboot" "Stay in live environment"; do
+  case $choice in
+    "Reboot")
+      echo "Rebooting..."
+      reboot
+      break;; # Exit the select loop
+    "Stay in live environment")
+      echo "Staying in live environment."
+      break;; # Exit the select loop
+    *)
+      echo "Invalid choice. Please try again."
+      ;;
+  esac
+done
+
+echo "Script finished."
