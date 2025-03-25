@@ -14,12 +14,12 @@ error_exit() {
 
 # Function to get user input for variables
 get_user_input() {
-  read -p "Enter the disk you want to use (e.g., /dev/sda): " DISK
-  read -s -p "Enter the passphrase for the luks partition: " ROOT_PASSPHRASE
+  read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
+  read -s -p "Enter the password for the encrypted volume: " VOLUME_PASSWORD
   echo ""
-  read -s -p "Re-enter the passphrase for the luks partition: " ROOT_PASSPHRASE_CONFIRM
+  read -s -p "Re-enter the password for the encrypted volume: " VOLUME_PASSWORD_CONFIRM
   echo ""
-  if [[ "$ROOT_PASSPHRASE" != "$ROOT_PASSPHRASE_CONFIRM" ]]; then
+  if [[ "$VOLUME_PASSWORD" != "$VOLUME_PASSWORD_CONFIRM" ]]; then
     error_exit "Passwords do not match."
   fi
   read -s -p "Enter the root password: " ROOT_PASSWORD
@@ -70,10 +70,10 @@ mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # Encrypted volume configuration
 echo "Encrypting $ROOT_PARTITION..."
-echo "$ROOT_PASSPHRASE" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
+echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
-echo "$ROOT_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
+echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 echo "Creating filesystems..."
 mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
@@ -98,13 +98,13 @@ xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 sleep 5 # Add a 5-second delay
 
 # Get the password before entering chroot
-read -s -p "Enter passphrase: " ROOT_PASSWORD1
+read -s -p "Enter passphrase: " VOLUME_PASSWORD1
 echo ""
-read -s -p "Verify passphrase: " ROOT_PASSWORD2
+read -s -p "Verify passphrase: " VOLUME_PASSWORD2
 echo ""
 
 # get the password before xchroot
-if [[ "$ROOT_PASSPHRASE1" != "$ROOT_PASSPHRASE2" ]]; then
+if [[ "$VOLUME_PASSWORD1" != "$VOLUME_PASSWORD2" ]]; then
   echo "Passphrases do not match. Exiting."
   exit 1 # Exit the script if passwords don't match
 fi
@@ -127,7 +127,7 @@ echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"" >> /etc/default/grub
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
-echo "$ROOT_PASSPHRASE1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
+echo "$VOLUME_PASSWORD1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
 sleep 2
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
