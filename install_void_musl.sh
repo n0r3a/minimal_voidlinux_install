@@ -6,7 +6,6 @@
 
 # Variables
 REPO_URL="https://repo-default.voidlinux.org/current/musl"
-LOCALE="en_US.UTF-8"
 VOLUME_NAME_ROOT="voidroot" #Simplified volume name
 
 # Function to handle errors
@@ -88,9 +87,6 @@ chown root:root / || echo "chown failed"
 chmod 755 / || echo "chmod failed"
 passwd root || echo "passwd failed"
 echo "voidvm" > /etc/hostname || echo "hostname failed"
-echo "LANG=$LOCALE" > /etc/locale.conf || echo "locale.conf failed"
-echo "$LOCALE UTF-8" >> /etc/default/libc-locales || echo "libc-locales failed"
-xbps-reconfigure -f glibc-locales || echo "xbps-reconfigure glibc-locales failed"
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
@@ -112,4 +108,3 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
-
