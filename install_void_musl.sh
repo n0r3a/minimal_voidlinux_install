@@ -18,7 +18,7 @@ error_exit() {
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
   read -s -p "Enter the password for the encrypted volume: " VOLUME_PASSWORD
-  echo "" # Add a newline for better readability
+  echo ""
   read -s -p "Re-enter the password for the encrypted volume: " VOLUME_PASSWORD_CONFIRM
   echo ""
   if [[ "$VOLUME_PASSWORD" != "$VOLUME_PASSWORD_CONFIRM" ]]; then
@@ -40,23 +40,19 @@ create_partitions_parted() {
   parted -s "$DISK" mkpart primary fat32 1MiB 201MiB
   parted -s "$DISK" mkpart primary xfs 201MiB 100%
 
-  # Check if partitions were created
   if [[ -b "${DISK}1" && -b "${DISK}2" ]]; then
     echo "Partitions created successfully."
   else
     error_exit "Failed to create partitions."
   fi
 
-  # Add a short delay
   sleep 2
 
-  # Update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
 
   EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
 
-  #Debugging information
   echo "Checking for partitions"
   lsblk "$DISK"
 }
@@ -101,12 +97,12 @@ xgenfstab /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 # Entering the Chroot
 echo "Entering chroot..."
 xchroot /mnt <<EOF
-chown root:root / || echo "chown failed"
-chmod 755 / || echo "chmod failed"
 passwd root <<PASSWD_EOF
 $ROOT_PASSWORD
 $ROOT_PASSWORD
 PASSWD_EOF
+chown root:root / || echo "chown failed"
+chmod 755 / || echo "chmod failed"
 echo "voidvm" > /etc/hostname || echo "hostname failed"
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
@@ -119,12 +115,12 @@ $VOLUME_PASSWORD
 CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
+echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks,noauto" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
 grub-mkconfig -o /boot/grub/grub.cfg
-xbps-reconfigure -fa || echo "xbps-reconfigure failed" #Added this line
+xbps-reconfigure -fa || echo "xbps-reconfigure failed"
 exit
 EOF
 
