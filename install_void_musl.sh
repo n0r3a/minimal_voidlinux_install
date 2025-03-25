@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# UEFI Full Disk Encryption Installation Script (/ only, automated fdisk)
+# UEFI Full Disk Encryption Installation Script (/ only, automated sfdisk)
 
 # Warning: This script will overwrite data on your drive. Make sure you have backed up any important data.
 
@@ -33,15 +33,17 @@ get_user_input() {
   fi
 }
 
-# Function to create partitions using fdisk
-create_partitions_fdisk() {
-  echo "Creating partitions with fdisk..."
+# Function to create partitions using sfdisk
+create_partitions_sfdisk() {
+  echo "Creating partitions with sfdisk..."
 
-  # Create the EFI partition
-  echo -e "g\nn\np\n1\n2048\n264191\nt\n1\n1\na\n1\nw\n" | fdisk "$DISK" || error_exit "fdisk efi failed"
+  efi_part_size="250M"
 
-  # Create the root partition
-  echo -e "n\np\n2\n264192\n\nw\n" | fdisk "$DISK" || error_exit "fdisk root failed"
+  #Wipe disk
+  wipefs -aq "$DISK" || error_exit "wipefs failed"
+
+  #Format disk as GPT, create EFI partition and a 2nd partition with the remaining disk space
+  printf 'label: gpt\n, %s, U, *\n, , L\n' "$efi_part_size" | sfdisk -q "$DISK" || error_exit "sfdisk failed"
 
   # Update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
@@ -57,8 +59,8 @@ create_partitions_fdisk() {
 # Get user input
 get_user_input
 
-# Create partitions using fdisk
-create_partitions_fdisk
+# Create partitions using sfdisk
+create_partitions_sfdisk
 
 # Format the EFI partition
 mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
