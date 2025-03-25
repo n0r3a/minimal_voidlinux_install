@@ -49,4 +49,4 @@ I made this script because I prefer a straightforward setup on my laptop. I like
 
 * Make sure to back up any important data on your disk before running this script, as it will overwrite the data
 * Be very careful with your passwords and passphrases. Keep them safe!
-* If you have any questions or find any problems, please create an issue on GitHub
+* If you have any questions or find any problems, please create an issue
