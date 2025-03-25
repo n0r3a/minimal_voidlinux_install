@@ -1,10 +1,10 @@
 ## Minimal Void Linux Install (UEFI x86_64)
 
-This is a simple script to install Void Linux musl on UEFI x86_64 systems. It's for people who want a minimal FDE setup without LVM and "fancy" filesystems like Btrfs
+This is a simple script to install Void Linux musl on UEFI x86_64 systems. It's for people who want a minimal fde setup without LVM and "fancy" filesystems like btrfs
 
 **Disclaimer:**
 
-* This script doesn't use LVM
+* This script doesn't use lvm
 * File system is xfs
 * You'll need `git` and `parted` installed before running the script
 * No swap
@@ -12,7 +12,7 @@ This is a simple script to install Void Linux musl on UEFI x86_64 systems. It's 
 
 **Why I Made This:**
 
-I made this script because I prefer a straightforward setup on my laptop. I like simple filesystems and don't need LVM. If you're like me, this script might be helpful!
+I made this script because I prefer a straightforward setup on my laptop. I like simple filesystems and don't need lvm. If you're like me, this script might be helpful!
 
 ## Quick Start Guide
 
