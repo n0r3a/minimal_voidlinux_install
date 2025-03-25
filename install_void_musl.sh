@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# UEFI Full Disk Encryption Installation Script (/ only, automated parted)
+# UEFI Full Disk Encryption Installation Script (/ only, automated fdisk)
 
 # Warning: This script will overwrite data on your drive. Make sure you have backed up any important data.
 
@@ -33,23 +33,15 @@ get_user_input() {
   fi
 }
 
-# Function to create partitions using parted (updated to match Void docs)
-create_partitions_parted() {
-  echo "Creating partitions with parted..."
-  sleep 4 #increased delay
-  parted -s "$DISK" mklabel gpt || error_exit "parted mklabel failed"
-  parted -s -a optimal "$DISK" mkpart primary fat32 128MB 129MB || error_exit "parted efi failed"
-  parted -s -a optimal "$DISK" mkpart primary xfs 129MB 100% || error_exit "parted root failed"
+# Function to create partitions using fdisk
+create_partitions_fdisk() {
+  echo "Creating partitions with fdisk..."
 
-  # Check if partitions were created
-  if [[ -b "${DISK}1" && -b "${DISK}2" ]]; then
-    echo "Partitions created successfully."
-  else
-    error_exit "Failed to create partitions."
-  fi
+  # Create the EFI partition
+  echo -e "n\np\n1\n2048\n264191\nt\n1\n1\na\n1\nw\n" | fdisk "$DISK" || error_exit "fdisk efi failed"
 
-  # Add a short delay
-  sleep 2
+  # Create the root partition
+  echo -e "n\np\n2\n264192\n\nw\n" | fdisk "$DISK" || error_exit "fdisk root failed"
 
   # Update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
@@ -57,7 +49,7 @@ create_partitions_parted() {
   EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
 
-  #Debugging information
+  # Debugging information
   echo "Checking for partitions"
   lsblk "$DISK"
 }
@@ -65,8 +57,8 @@ create_partitions_parted() {
 # Get user input
 get_user_input
 
-# Create partitions using parted
-create_partitions_parted
+# Create partitions using fdisk
+create_partitions_fdisk
 
 # Format the EFI partition
 mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
@@ -128,8 +120,6 @@ grub-mkconfig -o /boot/grub/grub.cfg
 xbps-reconfigure -fa || echo "xbps-reconfigure failed"
 exit
 EOF
-
-parted "$DISK" set 1 boot on || echo "parted boot flag failed"
 
 # Unmount and reboot
 echo "Unmounting filesystems..."
