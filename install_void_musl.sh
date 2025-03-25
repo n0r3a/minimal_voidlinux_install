@@ -1,5 +1,3 @@
-Bash
-
 #!/bin/bash
 
 # UEFI Full Disk Encryption Installation Script (/ only, automated parted)
@@ -9,6 +7,7 @@ Bash
 # Variables
 REPO_URL="https://repo-default.voidlinux.org/current/musl"
 LOCALE="en_US.UTF-8"
+VOLUME_NAME_ROOT="voidroot" #Simplified volume name
 
 # Function to handle errors
 error_exit() {
@@ -19,7 +18,6 @@ error_exit() {
 # Function to get user input for variables
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/sda): " DISK
-  read -p "Enter the name for your encrypted root volume (e.g., luks_void): " VOLUME_NAME_ROOT
 }
 
 # Function to create partitions using parted
@@ -100,7 +98,7 @@ dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
 cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup failed"
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "$VOLUME_NAME_ROOT  $ROOT_PARTITION  /boot/volume.key  luks" >> /etc/crypttab || echo "crypttab failed"
+echo "$VOLUME_NAME_ROOT$ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed" #corrected line
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install "$DISK" || echo "grub install failed"
@@ -114,3 +112,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
