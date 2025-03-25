@@ -86,7 +86,6 @@ mount "/dev/mapper/$VOLUME_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot
 mkdir -p /mnt/boot/efi
 mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
-ls /mnt/boot/efi/ # Added debugging line
 
 echo "Copying RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
@@ -119,16 +118,11 @@ $VOLUME_PASSWORD
 CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "$VOLUME_NAME_ROOT$ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed" #corrected line
+echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
-grub-install "$DISK" --removable || echo "grub install failed" #Added removable option
-ls /boot/efi/EFI/void/ # Added debugging line
-grub-mkconfig -o /boot/grub/grub.cfg # added grub config debug
-cat /etc/crypttab # added crypttab debug
-blkid "$ROOT_PARTITION" # added blkid debug
-cat /etc/default/grub # added grub config debug
-xbps-reconfigure -fa || echo "xbps-reconfigure -fa failed"
+grub-install "$DISK" --removable || echo "grub install failed"
+grub-mkconfig -o /boot/grub/grub.cfg
 exit
 EOF
 
@@ -138,3 +132,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
