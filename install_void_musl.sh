@@ -1,3 +1,5 @@
+Bash
+
 #!/bin/bash
 
 # UEFI Full Disk Encryption Installation Script (/ only, automated parted)
@@ -103,7 +105,10 @@ echo "Entering chroot..."
 xchroot /mnt <<EOF
 chown root:root / || echo "chown failed"
 chmod 755 / || echo "chmod failed"
-passwd root <<< "$ROOT_PASSWORD\n$ROOT_PASSWORD" || echo "passwd failed"
+passwd root <<PASSWD_EOF
+$ROOT_PASSWORD
+$ROOT_PASSWORD
+PASSWD_EOF
 echo "voidvm" > /etc/hostname || echo "hostname failed"
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
