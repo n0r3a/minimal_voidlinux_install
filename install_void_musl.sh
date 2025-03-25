@@ -1,5 +1,3 @@
-Bash
-
 #!/bin/bash
 
 # UEFI Full Disk Encryption Installation Script (/ only, automated parted)
@@ -115,7 +113,9 @@ ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
-cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key --key-file - <<< "$VOLUME_PASSWORD" || echo "cryptsetup failed"
+cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key --key-file - <<CRYPT_EOF
+$VOLUME_PASSWORD
+CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
 echo "$VOLUME_NAME_ROOT$ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed" #corrected line
@@ -132,3 +132,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
