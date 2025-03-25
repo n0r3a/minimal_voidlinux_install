@@ -48,8 +48,13 @@ create_partitions_sfdisk() {
   # Update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
 
-  EFI_PARTITION="${DISK}1"
-  ROOT_PARTITION="${DISK}2"
+  if [[ "$DISK" == *"/nvme"* ]]; then
+    EFI_PARTITION="${DISK}p1"
+    ROOT_PARTITION="${DISK}p2"
+  else
+    EFI_PARTITION="${DISK}1"
+    ROOT_PARTITION="${DISK}2"
+  fi
 
   # Debugging information
   echo "Checking for partitions"
