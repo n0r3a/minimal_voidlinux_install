@@ -17,6 +17,20 @@ error_exit() {
 # Function to get user input for variables
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
+  read -s -p "Enter the password for the encrypted volume: " VOLUME_PASSWORD
+  echo "" # Add a newline for better readability
+  read -s -p "Re-enter the password for the encrypted volume: " VOLUME_PASSWORD_CONFIRM
+  echo ""
+  if [[ "$VOLUME_PASSWORD" != "$VOLUME_PASSWORD_CONFIRM" ]]; then
+    error_exit "Passwords do not match."
+  fi
+  read -s -p "Enter the root password: " ROOT_PASSWORD
+  echo ""
+  read -s -p "Re-enter the root password: " ROOT_PASSWORD_CONFIRM
+  echo ""
+  if [[ "$ROOT_PASSWORD" != "$ROOT_PASSWORD_CONFIRM" ]]; then
+    error_exit "Root passwords do not match."
+  fi
 }
 
 # Function to create partitions using parted
@@ -58,10 +72,10 @@ mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # Encrypted volume configuration
 echo "Encrypting $ROOT_PARTITION..."
-cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
+cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" --key-file - <<< "$VOLUME_PASSWORD" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
-cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
+cryptsetup luksOpen "$ROOT_PARTITION" "$VOLUME_NAME_ROOT" --key-file - <<< "$VOLUME_PASSWORD" || error_exit "cryptsetup luksOpen failed"
 
 echo "Creating filesystems..."
 mkfs.xfs -L root "/dev/mapper/$VOLUME_NAME_ROOT" || error_exit "mkfs.xfs root failed"
@@ -78,7 +92,7 @@ mkdir -p /mnt/var/db/xbps/keys
 cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
 echo "Installing base system..."
-xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_error_exit "xbps-install failed"
+xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_exit "xbps-install failed"
 
 # Configuration
 echo "Generating fstab..."
@@ -89,13 +103,14 @@ echo "Entering chroot..."
 xchroot /mnt <<EOF
 chown root:root / || echo "chown failed"
 chmod 755 / || echo "chmod failed"
+passwd root <<< "$ROOT_PASSWORD\n$ROOT_PASSWORD" || echo "passwd failed"
 echo "voidvm" > /etc/hostname || echo "hostname failed"
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
-cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup failed"
+cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key --key-file - <<< "$VOLUME_PASSWORD" || echo "cryptsetup failed"
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
 echo "$VOLUME_NAME_ROOT$ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed" #corrected line
@@ -103,7 +118,7 @@ mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install "$DISK" || echo "grub install failed"
 xbps-reconfigure -fa || echo "xbps-reconfigure -fa failed"
-/bin/bash #Start a new shell inside the chroot.
+exit
 EOF
 
 # Unmount and reboot
