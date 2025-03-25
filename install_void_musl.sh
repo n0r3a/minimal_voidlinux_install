@@ -78,7 +78,7 @@ mkdir -p /mnt/var/db/xbps/keys
 cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
 echo "Installing base system..."
-xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_exit "xbps-install failed"
+xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_error_exit "xbps-install failed"
 
 # Configuration
 echo "Generating fstab..."
@@ -89,10 +89,10 @@ echo "Entering chroot..."
 xchroot /mnt <<EOF
 chown root:root / || echo "chown failed"
 chmod 755 / || echo "chmod failed"
-passwd root || echo "passwd failed"
 echo "voidvm" > /etc/hostname || echo "hostname failed"
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
+echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
 cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup failed"
@@ -103,7 +103,7 @@ mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install "$DISK" || echo "grub install failed"
 xbps-reconfigure -fa || echo "xbps-reconfigure -fa failed"
-exit
+/bin/bash #Start a new shell inside the chroot.
 EOF
 
 # Unmount and reboot
