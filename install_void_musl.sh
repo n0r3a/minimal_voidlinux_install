@@ -6,7 +6,7 @@
 
 # Variables
 REPO_URL="https://repo-default.voidlinux.org/current/musl"
-VOLUME_NAME_ROOT="voidroot" #Simplified volume name
+VOLUME_NAME_ROOT="voidvm" #Use voidvm matching void docs
 
 # Function to handle errors
 error_exit() {
@@ -29,7 +29,7 @@ get_user_input() {
   read -s -p "Re-enter the root password: " ROOT_PASSWORD_CONFIRM
   echo ""
   if [[ "$ROOT_PASSWORD" != "$ROOT_PASSWORD_CONFIRM" ]]; then
-    error_exit "Root passwords do not match."
+    error_exit "Root passwords do't match."
   fi
 }
 
@@ -119,7 +119,7 @@ $VOLUME_PASSWORD
 CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks,noauto" >> /etc/crypttab || echo "crypttab failed"
+echo "$VOLUME_NAME_ROOT $ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
