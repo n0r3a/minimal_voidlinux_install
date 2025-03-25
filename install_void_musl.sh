@@ -118,7 +118,7 @@ $VOLUME_PASSWORD
 CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
+echo "voidroot ${DISK}2 /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
@@ -133,3 +133,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
