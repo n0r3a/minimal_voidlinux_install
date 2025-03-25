@@ -36,11 +36,13 @@ get_user_input() {
 # Function to create partitions using parted (updated to match Void docs)
 create_partitions_parted() {
   echo "Creating partitions with parted..."
+  sleep 4 #increased delay
   parted -s "$DISK" mklabel gpt || error_exit "parted mklabel failed"
   parted -s -a optimal "$DISK" mkpart primary fat32 128MB 129MB || error_exit "parted efi failed"
-  parted -s -a optimal "<span class="math-inline">DISK" mkpart primary xfs 129MB 100% \|\| error\_exit "parted root failed"
-\# Check if partitions were created
-if \[\[ \-b "</span>{DISK}1" && -b "${DISK}2" ]]; then
+  parted -s -a optimal "$DISK" mkpart primary xfs 129MB 100% || error_exit "parted root failed"
+
+  # Check if partitions were created
+  if [[ -b "${DISK}1" && -b "${DISK}2" ]]; then
     echo "Partitions created successfully."
   else
     error_exit "Failed to create partitions."
@@ -50,8 +52,9 @@ if \[\[ \-b "</span>{DISK}1" && -b "${DISK}2" ]]; then
   sleep 2
 
   # Update partitions
-  partprobe "<span class="math-inline">DISK" \|\| error\_exit "partprobe failed"
-EFI\_PARTITION\="</span>{DISK}1"
+  partprobe "$DISK" || error_exit "partprobe failed"
+
+  EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
 
   #Debugging information
@@ -87,4 +90,50 @@ mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
 
 echo "Copying RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
-cp /var/db
+cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
+
+echo "Installing base system..."
+xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_exit "xbps-install failed"
+
+# Configuration
+echo "Generating fstab..."
+xgenfstab /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
+
+# Entering the Chroot
+echo "Entering chroot..."
+xchroot /mnt <<EOF
+passwd root <<PASSWD_EOF
+$ROOT_PASSWORD
+$ROOT_PASSWORD
+PASSWD_EOF
+chown root:root / || echo "chown failed"
+chmod 755 / || echo "chmod failed"
+echo "voidvm" > /etc/hostname || echo "hostname failed"
+echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
+ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
+EFI_UUID=$(blkid -o value -s UUID "$EFI_PARTITION")
+echo "root partition uuid: $ROOT_UUID"
+sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
+dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
+cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key --key-file - <<CRYPT_EOF
+$VOLUME_PASSWORD
+CRYPT_EOF
+chmod 000 /boot/volume.key || echo "chmod key failed"
+chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
+echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks,noauto" >> /etc/crypttab || echo "crypttab failed"
+mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
+echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
+grub-mkconfig -o /boot/grub/grub.cfg
+xbps-reconfigure -fa || echo "xbps-reconfigure failed"
+exit
+EOF
+
+parted "$DISK" set 1 boot on || echo "parted boot flag failed"
+
+# Unmount and reboot
+echo "Unmounting filesystems..."
+umount -R /mnt || error_exit "umount failed"
+
+echo "Rebooting..."
+#reboot
