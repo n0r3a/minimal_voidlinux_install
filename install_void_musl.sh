@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# UEFI Full Disk Encryption Installation Script (/ only, automated sfdisk)
-
-# Warning: This script will overwrite data on your drive. Make sure you have backed up any important data.
+# UEFI Full Disk Encryption Installation Script
 
 # Variables
 REPO_URL="https://repo-default.voidlinux.org/current/musl"
@@ -124,7 +122,7 @@ passwd root <<PASSWD_EOF
 $ROOT_PASSWORD
 $ROOT_PASSWORD
 PASSWD_EOF
-echo "voidvm" > /etc/hostname
+echo "tiny_void" > /etc/hostname
 echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"" >> /etc/default/grub
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
@@ -151,7 +149,7 @@ sleep 5
 echo "Unmounting filesystems..."
 umount -R /mnt || error_exit "umount failed"
 
-# Add select function
+# Select function
 select choice in "Reboot" "Stay in live environment"; do
   case $choice in
     "Reboot")
