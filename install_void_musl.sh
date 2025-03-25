@@ -125,8 +125,7 @@ echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 echo "root partition uuid: $ROOT_UUID"
 sleep 2
-# Corrected sed command to add rd.luks.uuid
-sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub
+echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"" >> /etc/default/grub
 sleep 2
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
@@ -138,8 +137,6 @@ echo "$LUKS_NAME_ROOT $ROOT_PARTITION /boot/volume.key luks" > /etc/crypttab
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf
 grub-install "$DISK"
 xbps-reconfigure -fa
-sleep 2
-echo "editing fstab"
 sleep 2
 echo "editing fstab"
 sleep 2
