@@ -43,7 +43,7 @@ I made this script because I prefer a straightforward setup on my laptop. I like
 12. **Enjoy Void Linux with FDE!** That's it! Your system is now installed
 12. **Remember to change your computer's hostname, and check the network setup instructions on the Void Linux website**
 
-## Notes
+## Important
 
 * Make sure to back up any important data on your disk before running this script, as it will overwrite the data
 * Be very careful with your passwords and passphrases. Keep them safe!
