@@ -33,26 +33,30 @@ get_user_input() {
   fi
 }
 
-# Function to create partitions using parted
+# Function to create partitions using parted (updated to match Void docs)
 create_partitions_parted() {
   echo "Creating partitions with parted..."
-  parted -s "$DISK" mklabel gpt
-  parted -s "$DISK" mkpart primary fat32 1MiB 201MiB
-  parted -s "$DISK" mkpart primary xfs 201MiB 100%
+  parted -s "$DISK" mklabel gpt || error_exit "parted mklabel failed"
+  parted -s -a optimal "$DISK" mkpart primary fat32 2048s 264191s || error_exit "parted efi failed"
+  parted -s -a optimal "$DISK" mkpart primary xfs 264192s 100% || error_exit "parted root failed"
 
+  # Check if partitions were created
   if [[ -b "${DISK}1" && -b "${DISK}2" ]]; then
     echo "Partitions created successfully."
   else
     error_exit "Failed to create partitions."
   fi
 
+  # Add a short delay
   sleep 2
 
+  # Update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
 
   EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
 
+  #Debugging information
   echo "Checking for partitions"
   lsblk "$DISK"
 }
@@ -113,7 +117,7 @@ dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
 cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key --key-file - <<CRYPT_EOF
 $VOLUME_PASSWORD
 CRYPT_EOF
-chmod 000 /boot/volume.key || echo "chmod volume key failed"
+chmod 000 /boot/volume.key || echo "chmod key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
 echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks,noauto" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
@@ -132,3 +136,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
