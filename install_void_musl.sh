@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# UEFI Full Disk Encryption Installation Script (/ only, automated fdisk)
+# UEFI Full Disk Encryption Installation Script (/ only, automated parted)
 
 # Warning: This script will overwrite data on your drive. Make sure you have backed up any important data.
 
@@ -20,26 +20,12 @@ get_user_input() {
   read -p "Enter the name for your encrypted root volume (e.g., luks_void): " VOLUME_NAME_ROOT
 }
 
-# Function to create partitions using fdisk
-create_partitions_fdisk() {
-  echo "Creating partitions with fdisk..."
-  fdisk "$DISK" <<EOFDISK
-o
-n
-p
-1
-
-+200M
-t
-1
-1
-n
-p
-2
-
-
-w
-EOFDISK
+# Function to create partitions using parted
+create_partitions_parted() {
+  echo "Creating partitions with parted..."
+  parted -s "$DISK" mklabel gpt
+  parted -s "$DISK" mkpart primary fat32 1MiB 201MiB
+  parted -s "$DISK" mkpart primary xfs 201MiB 100%
 
   # Check if partitions were created
   if [[ -b "${DISK}1" && -b "${DISK}2" ]]; then
@@ -58,8 +44,8 @@ EOFDISK
 # Get user input
 get_user_input
 
-# Create partitions using fdisk
-create_partitions_fdisk
+# Create partitions using parted
+create_partitions_parted
 
 # Format the EFI partition
 mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
