@@ -122,11 +122,12 @@ chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
 echo "$VOLUME_NAME_ROOT$ROOT_PARTITION /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed" #corrected line
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
-grub-install "$DISK" || echo "grub install failed"
+grub-install "$DISK" --removable || echo "grub install failed" #Added removable option
 ls /boot/efi/EFI/void/ # Added debugging line
 grub-mkconfig -o /boot/grub/grub.cfg # added grub config debug
 cat /etc/crypttab # added crypttab debug
 blkid "$ROOT_PARTITION" # added blkid debug
+cat /etc/default/grub # added grub config debug
 xbps-reconfigure -fa || echo "xbps-reconfigure -fa failed"
 exit
 EOF
@@ -137,4 +138,3 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
-
