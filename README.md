@@ -5,7 +5,7 @@ This is a simple script to install Void Linux muslon UEFI x86_64 systems. It's f
 **Disclaimer:**
 
 * This script doesn't use LVM
-* File system is XFS
+* File system is xfs
 * You'll need `git` and `parted` installed before running the script
 
 **Why I Made This:**
