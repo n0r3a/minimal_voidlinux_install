@@ -1,3 +1,5 @@
+Bash
+
 #!/bin/bash
 
 # UEFI Full Disk Encryption Installation Script (/ only, automated parted)
@@ -34,8 +36,11 @@ create_partitions_parted() {
     error_exit "Failed to create partitions."
   fi
 
+  # Add a short delay
+  sleep 2
+
   # Update partitions
-  blockdev --rereadpt "$DISK" || error_exit "blockdev --rereadpt failed"
+  partprobe "$DISK" || error_exit "partprobe failed"
 
   EFI_PARTITION="${DISK}1"
   ROOT_PARTITION="${DISK}2"
@@ -109,4 +114,3 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
-
