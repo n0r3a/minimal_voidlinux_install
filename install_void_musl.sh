@@ -110,6 +110,7 @@ PASSWD_EOF
 echo "voidvm" > /etc/hostname || echo "hostname failed"
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub || echo "grub config failed"
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
+EFI_UUID=$(blkid -o value -s UUID "$EFI_PARTITION")
 echo "root partition uuid: $ROOT_UUID"
 sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"\"/GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"/" /etc/default/grub || echo "sed grub failed"
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key || echo "dd random failed"
@@ -118,7 +119,7 @@ $VOLUME_PASSWORD
 CRYPT_EOF
 chmod 000 /boot/volume.key || echo "chmod volume key failed"
 chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
-echo "voidroot ${DISK}2 /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
+echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
