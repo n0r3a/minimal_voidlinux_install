@@ -37,6 +37,7 @@ n
 p
 2
 
+
 w
 EOFDISK
 
@@ -122,3 +123,4 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
+
