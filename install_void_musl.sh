@@ -121,7 +121,8 @@ chmod -R g-rwx,o-rwx /boot || echo "chmod boot failed"
 echo "voidroot UUID=$ROOT_UUID /boot/volume.key luks" >> /etc/crypttab || echo "crypttab failed"
 mkdir -p /etc/dracut.conf.d || echo "mkdir dracut failed"
 echo "install_items+=\" /boot/volume.key /etc/crypttab \"" > /etc/dracut.conf.d/10-crypt.conf || echo "dracut config failed"
-grub-install "$DISK" --removable || echo "grub install failed"
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=void "$DISK" || echo "grub install failed"
+parted "$DISK" set 1 boot on || echo "parted boot flag failed"
 grub-mkconfig -o /boot/grub/grub.cfg
 exit
 EOF
@@ -132,4 +133,3 @@ umount -R /mnt || error_exit "umount failed"
 
 echo "Rebooting..."
 #reboot
-
