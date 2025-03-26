@@ -15,12 +15,12 @@ error_exit() {
 # Function to get user input for variables
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
-  read -s -p "Enter the password for the encrypted volume: " VOLUME_PASSWORD
+  read -s -p "Enter the passphrase you want for the encrypted disk: " LUKS_PASSPHRASE
   echo ""
-  read -s -p "Re-enter the password for the encrypted volume: " VOLUME_PASSWORD_CONFIRM
+  read -s -p "Re-enter the passphrase for the encrypted volume: " LUKS_PASSPHRASE_CONFIRM
   echo ""
-  if [[ "$VOLUME_PASSWORD" != "$VOLUME_PASSWORD_CONFIRM" ]]; then
-    error_exit "Passwords do not match."
+  if [[ "$LUKS_PASSPHRASE" != "$LUKS_PASSPHRASE_CONFIRM" ]]; then
+    error_exit "Passphrase do not match."
   fi
   read -s -p "Enter the root password: " ROOT_PASSWORD
   echo ""
@@ -70,10 +70,10 @@ mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # Encrypted volume configuration
 echo "Encrypting $ROOT_PARTITION..."
-echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
+echo "$LUKS_PASSPHRASE" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
-echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
+echo "$LUKS_PASSPHRASE" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 echo "Creating filesystems..."
 mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
@@ -104,7 +104,7 @@ read -s -p "Verify passphrase: " VOLUME_PASSWORD2
 echo ""
 
 # get the password before xchroot
-if [[ "$VOLUME_PASSWORD1" != "$VOLUME_PASSWORD2" ]]; then
+if [[ "$LUKS_PASSPHRASE1" != "$LUKS_PASSPHRASE2" ]]; then
   echo "Passphrases do not match. Exiting."
   exit 1 # Exit the script if passwords don't match
 fi
@@ -127,7 +127,7 @@ echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$ROOT_UUID\"" >> /etc/default/grub
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
 sleep 2
-echo "$VOLUME_PASSWORD1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
+echo "$LUKS_PASSPHRASE1" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed"
 sleep 2
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
