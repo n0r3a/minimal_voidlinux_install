@@ -2,13 +2,16 @@
 
 This is a simple script to install Void Linux musl on uefi x86_64 systems. It's for people who want a minimal fde setup without LVM and "fancy" filesystems like btrfs
 
-**Disclaimer:**
+**Important Notes Before Running This Script:**
 
 * This script doesn't use lvm
 * File system is xfs
 * You'll need `git` and `parted` installed before running the script
 * No swap
 * Partitions are: /boot/efi and /
+* Make sure to back up any important data on your disk before running this script, as it will overwrite the data
+* Be very careful with your passwords and passphrases. Keep them safe!
+* If you have any questions or find any problems, please create an issue
 
 **Why I Made This:**
 
@@ -44,9 +47,3 @@ I made this script because I prefer a straightforward setup on my laptop. I like
 11. **Choose to Reboot:** The script will ask if you want to reboot or stay in the live environment
 12. **Enjoy Void Linux with FDE!** That's it! Your system is now installed
 12. **Remember to change your computer's hostname, and check the network setup instructions on the Void Linux website**
-
-## Important
-
-* Make sure to back up any important data on your disk before running this script, as it will overwrite the data
-* Be very careful with your passwords and passphrases. Keep them safe!
-* If you have any questions or find any problems, please create an issue
