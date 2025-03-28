@@ -15,9 +15,9 @@ error_exit() {
 # Function to get user input for variables
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
-  read -s -p "Enter the password for the encrypted volume: " VOLUME_PASSWORD
+  read -s -p "Enter the passphrase for the encrypted disk: " VOLUME_PASSWORD
   echo ""
-  read -s -p "Re-enter the password for the encrypted volume: " VOLUME_PASSWORD_CONFIRM
+  read -s -p "Re-enter the passphrase for the encrypted disk: " VOLUME_PASSWORD_CONFIRM
   echo ""
   if [[ "$VOLUME_PASSWORD" != "$VOLUME_PASSWORD_CONFIRM" ]]; then
     error_exit "Passwords do not match."
