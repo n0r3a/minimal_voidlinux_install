@@ -98,9 +98,9 @@ xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 sleep 5 # Add a 5-second delay
 
 # Get the password before entering chroot
-read -s -p "Enter passphrase: " VOLUME_PASSWORD1
+read -s -p "Enter luks passphrase for boot key: " VOLUME_PASSWORD1
 echo ""
-read -s -p "Verify passphrase: " VOLUME_PASSWORD2
+read -s -p "Verify luks passphrase for boot key: " VOLUME_PASSWORD2
 echo ""
 
 # get the password before xchroot
