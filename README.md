@@ -15,12 +15,12 @@ This is a simple script to install void linux musl on uefi x86_64 systems. It's 
 
 **Why I made this:**
 
-I made this script because I prefer a straightforward setup on my laptop. I like simple filesystems and don't need lvm. If you're like me, this script might be helpful!
+I made this script because I prefer a simple setup on my laptop. I like "simple" filesystems and don't need lvm. If you're like me, this script might be helpful!
 
 ## Quick start guide
 
-1.  **Download Void Linux:** Get the Void Linux x86_64 musl live environment from the Void Linux website.
-2.  **Boot the Live Environment:** Boot your computer from the live environment and log in as root.
+1.  **Download Void Linux:** Get the Void Linux x86_64 musl live environment from the Void Linux website
+2.  **Boot the Live Environment:** Boot your computer from the live environment and log in as root
 3.  **Install Needed Packages:** Open a terminal and run:
     ```bash
     xbps-install -S git parted
