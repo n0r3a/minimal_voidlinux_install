@@ -1,18 +1,20 @@
 #!/bin/bash
 
-# UEFI Full Disk Encryption Installation Script
+# uefi
+# luks
+# xfs
 
-# Variables
+# variables
 REPO_URL="https://repo-default.voidlinux.org/current/musl"
 LUKS_NAME_ROOT="luks_void"
 
-# Function to handle errors
+# function to handle errors
 error_exit() {
   echo "Error: $1"
   exit 1
 }
 
-# Function to get user input for variables
+# get user input for variables
 get_user_input() {
   read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
   read -s -p "Enter the passphrase for the encrypted disk: " VOLUME_PASSWORD
@@ -31,19 +33,19 @@ get_user_input() {
   fi
 }
 
-# Function to create partitions using sfdisk
+# create partitions using sfdisk
 create_partitions_sfdisk() {
   echo "Creating partitions with sfdisk..."
 
   efi_part_size="250M"
 
-  #Wipe disk
+  # wipe disk
   wipefs -aq "$DISK" || error_exit "wipefs failed"
 
-  #Format disk as GPT, create EFI partition and a 2nd partition with the remaining disk space
+  # format disk as GPT, create efi partition and a 2nd partition with the remaining disk space
   printf 'label: gpt\n, %s, U, *\n, , L\n' "$efi_part_size" | sfdisk -q "$DISK" || error_exit "sfdisk failed"
 
-  # Update partitions
+  # update partitions
   partprobe "$DISK" || error_exit "partprobe failed"
 
   if [[ "$DISK" == *"/nvme"* ]]; then
@@ -54,21 +56,21 @@ create_partitions_sfdisk() {
     ROOT_PARTITION="${DISK}2"
   fi
 
-  # Debugging information
+  # debugging information
   echo "Checking for partitions"
   lsblk "$DISK"
 }
 
-# Get user input
+# get user input
 get_user_input
 
-# Create partitions using sfdisk
+# create partitions using sfdisk
 create_partitions_sfdisk
 
-# Format the EFI partition
+# format the efi partition
 mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
-# Encrypted volume configuration
+# encrypted partition configuration
 echo "Encrypting $ROOT_PARTITION..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
@@ -78,7 +80,7 @@ echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT
 echo "Creating filesystems..."
 mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
 
-# System installation
+# ystem install
 echo "Mounting filesystems..."
 mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot
@@ -92,28 +94,28 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 echo "Installing base system..."
 xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi || error_exit "xbps-install failed"
 
-# Configuration
+# configuration
 echo "Generating fstab..."
 xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 sleep 5 # Add a 5-second delay
 
-# Get the password before entering chroot
+# get the luks passphrase before xchroot
 read -s -p "Enter luks passphrase for boot key: " VOLUME_PASSWORD1
 echo ""
 read -s -p "Verify luks passphrase for boot key: " VOLUME_PASSWORD2
 echo ""
 
-# get the password before xchroot
+# wrong passphrase
 if [[ "$VOLUME_PASSWORD1" != "$VOLUME_PASSWORD2" ]]; then
   echo "Passphrases do not match. Exiting."
-  exit 1 # Exit the script if passwords don't match
+  exit 1
 fi
 
-# Get the UUID before entering chroot
+# get uuid before xchroot
 ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 echo "root partition uuid: $ROOT_UUID"
 
-# Entering the Chroot
+# xchroot
 echo "Entering chroot..."
 xchroot /mnt /bin/bash <<EOF || error_exit "xchroot failed"
 chown root:root /
@@ -144,12 +146,12 @@ echo "$ROOT_PARTITION / xfs defaults 0 0" >> /etc/fstab
 exit
 EOF
 
-# Unmount and reboot
+# unmount and reboot
 sleep 5
 echo "Unmounting filesystems..."
 umount -R /mnt || error_exit "umount failed"
 
-# Select function
+# select function
 select choice in "Reboot" "Stay in live environment"; do
   case $choice in
     "Reboot")
