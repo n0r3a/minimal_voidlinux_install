@@ -8,9 +8,7 @@ This is a simple script to install void linux musl on uefi x86_64 systems. It's 
 * File system is xfs
 * You'll need `git` and `parted` installed before running the script
 * No swap
-* Partitions are: 
-  /boot/efi
-  /
+* Partitions are: \n /boot/efi \n /
 * Make sure to back up any important data on your disk before running this script, as it will overwrite the data
 * Be very careful with your passwords and passphrases. Keep them safe!
 * If you have any questions or find any problems, please create an issue
