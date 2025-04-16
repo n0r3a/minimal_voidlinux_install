@@ -46,4 +46,4 @@ I made this script because I prefer a simple setup on my laptop. I like "simple"
 10. **Add LUKS Key:** Enter the LUKS passphrase again, twice, to add it as a key for /boot
 11. **Choose to Reboot:** The script will ask if you want to reboot or stay in the live environment
 12. **Enjoy Void Linux with FDE!** That's it! Your system is now installed
-12. **Remember to change your computer's hostname, and check the network setup instructions on the Void Linux website**
+12. **Remember** to change your computer's hostname, and check the network setup instructions on the Void Linux website
