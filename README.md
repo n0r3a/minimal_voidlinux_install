@@ -1,4 +1,4 @@
-## Minimal void linux install (uefi x86_64)
+## minimal void linux install (uefi x86_64)
 
 This is a simple script to install void linux musl on uefi or mbr x86_64 systems. It's for people who want a minimal fde setup
 
