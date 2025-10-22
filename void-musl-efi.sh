@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Configuration: UEFI (GPT), luks1, xfs (musl) - Single Encrypted Partition with Standard Workaround
+# Configuration: UEFI (GPT), luks1, ext4 (musl) - Single Encrypted Partition with Encrypted /boot
 
 # --- Variables ---
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
@@ -86,8 +86,9 @@ echo "Opening root encrypted volume..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 # 5. Create filesystems
-echo "Creating XFS filesystem on decrypted volume (/ and /boot)..."
-mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
+echo "Creating EXT4 filesystem on decrypted volume (/ and /boot)..."
+# --- CHANGED XFS to EXT4 to fix GRUB read/write boundary error ---
+mkfs.ext4 -L root -F "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.ext4 root failed"
 
 # 6. System install preparation
 echo "Mounting filesystems..."
@@ -166,16 +167,17 @@ mkdir -p /boot/grub
 echo "Generating final grub.cfg..."
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# Install GRUB (UEFI standard) - Reverted to simple command
+# Install GRUB (UEFI standard)
 echo "Installing GRUB (UEFI standard)..."
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
+# --- CHANGED filesystem type from xfs to ext4 ---
 cat > /etc/fstab <<FSTAB_EOF
 # <file system> <dir> <type> <options> <dump> <pass>
 UUID=\$(blkid -o value -s UUID "$EFI_PARTITION") /boot/efi vfat defaults 0 0
-/dev/mapper/$LUKS_NAME_ROOT / xfs defaults 0 0
+/dev/mapper/$LUKS_NAME_ROOT / ext4 defaults 0 0 
 FSTAB_EOF
 
 # Reconfigure all packages to build the initramfs
