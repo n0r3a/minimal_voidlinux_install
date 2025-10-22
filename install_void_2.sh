@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Configuration: UEFI (GPT), luks1, xfs (musl)
+# Configuration: UEFI (GPT), luks1, xfs (musl) testing
 
 # --- Variables ---
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
@@ -105,7 +105,7 @@ mkdir -p /mnt/etc/xbps.d
 echo "repository=$REPO_URL" > /mnt/etc/xbps.d/00-repository-main.conf || error_exit "Writing XBPS config failed"
 
 echo "Installing base system and necessary packages (musl, UEFI grub)..."
-# Using the configured repository inside the /mnt chroot
+# FIXED: Removed the redundant and problematic -R flag. xbps-install now uses the config file in /mnt.
 xbps-install -Sy -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
 
 # 7. Initial configuration (used only for structure by xgenfstab)
