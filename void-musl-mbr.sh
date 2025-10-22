@@ -3,7 +3,8 @@
 # Configuration: MBR (legacy boot), luks1, xfs (musl)
 
 # --- Variables ---
-REPO_URL="https://repo-default.voidlinux.org/current/musl" # Musl repository
+# REPO URL: Standard Musl path, combined with XBPS_ARCH fix.
+REPO_URL="https://repo-default.voidlinux.org/current/musl" 
 LUKS_NAME_ROOT="luks_void"
 
 # --- Function to handle errors ---
@@ -19,7 +20,6 @@ get_user_input() {
     error_exit "Invalid disk device: $DISK"
   fi
   
-  # VOLUME_PASSWORD is used for LUKS format/key slot 0 and adding the keyfile
   read -s -p "Enter the passphrase for the encrypted disk: " VOLUME_PASSWORD
   echo ""
   read -s -p "Re-enter the passphrase for the encrypted disk: " VOLUME_PASSWORD_CONFIRM
@@ -28,7 +28,6 @@ get_user_input() {
     error_exit "LUKS Passwords do not match."
   fi
   
-  # ROOT_PASSWORD is used for the user account password
   read -s -p "Enter the root password: " ROOT_PASSWORD
   echo ""
   read -s -p "Re-enter the root password: " ROOT_PASSWORD_CONFIRM
@@ -46,8 +45,8 @@ create_partitions_sfdisk() {
   wipefs -af "$DISK" || error_exit "wipefs failed"
 
   # format disk as DOS (MBR), create a single primary partition using remaining space
-  # Type 83 (Linux) is used.
-  printf 'label: dos\n, , L, *\n' | sfdisk -q "$DISK" || error_exit "sfdisk failed"
+  # Type 83 (Linux), set as bootable (*)
+  printf 'label: dos\n, , 83, *\n' | sfdisk -q "$DISK" || error_exit "sfdisk failed"
 
   # Determine partition names
   if [[ "$DISK" == *"/nvme"* ]]; then
@@ -87,14 +86,15 @@ mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root fail
 # 5. System install preparation
 echo "Mounting root filesystem..."
 mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
+# NOTE: No separate /boot/efi or /boot mount required for MBR/FDE
 
 echo "Copying XBPS RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
 echo "Installing base system and necessary packages (musl, MBR grub)..."
-# Installed the standard 'grub' package instead of 'grub-x86_64-efi'
-xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub dracut || error_exit "xbps-install failed"
+# Setting XBPS_ARCH ensures the correct Musl repodata is looked up
+env XBPS_ARCH=x86_64-musl xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub dracut || error_exit "xbps-install failed"
 
 # 6. Initial configuration (used only for structure by xgenfstab)
 echo "Generating initial fstab..."
@@ -145,8 +145,9 @@ echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
 # Install GRUB (MBR standard)
-# This installs the bootloader to the Master Boot Record of the disk.
-grub-install "$DISK"
+echo "Installing GRUB with explicit disk module (fixes boundary errors)..."
+# Using --disk-module=part_msdos for MBR (DOS) partition awareness
+grub-install "$DISK" --disk-module=part_msdos
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
