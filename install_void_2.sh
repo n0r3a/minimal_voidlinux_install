@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Configuration: UEFI (GPT), luks1, xfs (musl) testing
+# Configuration: UEFI (GPT), luks1, xfs (musl) testigen
 
 # --- Variables ---
-REPO_URL="https://repo-default.voidlinux.org/current/musl" 
+# DEFINITIVE FIX: Pointing directly to the architecture-specific Musl package directory
+REPO_URL="https://repo-default.voidlinux.org/current/musl/x86_64-musl" 
 LUKS_NAME_ROOT="luks_void"
 
 # --- Function to handle errors ---
@@ -99,14 +100,9 @@ echo "Copying XBPS RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
-## IMPORTANT FIX: Explicitly setting the repository configuration
-echo "Setting XBPS repository configuration in /mnt..."
-mkdir -p /mnt/etc/xbps.d
-echo "repository=$REPO_URL" > /mnt/etc/xbps.d/00-repository-main.conf || error_exit "Writing XBPS config failed"
-
 echo "Installing base system and necessary packages (musl, UEFI grub)..."
-# FIXED: Removed the redundant and problematic -R flag. xbps-install now uses the config file in /mnt.
-xbps-install -Sy -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
+# USING -R WITH THE FULL ARCHITECTURE PATH to bypass the repodata confusion
+xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
 
 # 7. Initial configuration (used only for structure by xgenfstab)
 echo "Generating initial fstab..."
