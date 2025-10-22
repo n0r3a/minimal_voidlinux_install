@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Configuration: UEFI (GPT), luks1, xfs (musl) - Single Encrypted Partition
+# Configuration: UEFI (GPT), luks1, xfs (musl) - Single Encrypted Partition with Timeout Workaround
 
 # --- Variables ---
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
@@ -85,7 +85,7 @@ echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" |
 echo "Opening root encrypted volume..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
-# >>>>> STABILITY DELAY 1 <<<<<
+# >>>>> STABILITY DELAY 1 (Kept for robustness) <<<<<
 echo "Waiting 2 seconds for LUKS device mapper to stabilize..."
 sleep 2 
 # >>>>> END OF STABILITY DELAY 1 <<<<<
@@ -100,9 +100,7 @@ mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot/efi
 mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
 
-# >>>>> CRITICAL STEP FOR CHROOT DEVICE MAPPING FIX <<<<<
-# This ensures the new environment has access to device files needed by GRUB/Dracut,
-# mirroring a fully initialized manual environment.
+# >>>>> CRITICAL STEP FOR CHROOT DEVICE MAPPING FIX (Kept for correctness) <<<<<
 echo "Binding virtual filesystems..."
 for dir in dev proc sys; do
     mkdir -p /mnt/$dir
@@ -115,10 +113,9 @@ mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
 echo "Installing base system and necessary packages (musl, UEFI grub)..."
-# Setting XBPS_ARCH ensures the correct Musl repodata is looked up
 env XBPS_ARCH=x86_64-musl xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
 
-# 7. Initial configuration (used only for structure by xgenfstab)
+# 7. Initial configuration
 echo "Generating initial fstab..."
 xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 
@@ -129,7 +126,7 @@ echo "Root LUKS partition UUID: $LUKS_PART_UUID"
 # 8. Enter chroot for final configuration
 echo "Entering chroot for system configuration..."
 xchroot /mnt /bin/bash <<EOF || error_exit "xchroot failed"
-set -e # Exit immediately if a command exits with a non-zero status
+set -e 
 
 # Set root password
 echo "Setting root password..."
@@ -144,27 +141,27 @@ echo "tiny_void" > /etc/hostname
 # Keyfile generation and configuration
 echo "Configuring LUKS keyfile for boot..."
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
-# Use the known LUKS password to add the keyfile to an empty slot
 echo "$VOLUME_PASSWORD" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed (requires existing password slot)"
-# Set permissions to 000 as per Void Linux FDE documentation
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
 
-# Configure crypttab (use UUID for robustness)
+# Configure crypttab
 echo "Configuring /etc/crypttab..."
-# Use UUID of the LUKS partition
 echo "$LUKS_NAME_ROOT UUID=$LUKS_PART_UUID /boot/volume.key luks" > /etc/crypttab
 
-# Configure dracut to include the keyfile and crypttab in the initramfs
+# Configure dracut
 echo "Configuring dracut..."
 echo 'install_items+=" /boot/volume.key /etc/crypttab "' > /etc/dracut.conf.d/10-crypt.conf
 
 # Configure GRUB
 echo "Configuring GRUB..."
-# Set GRUB to enable cryptodisk support (ESSENTIAL for /boot encryption)
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
-# Set the kernel command line to unlock the volume using its UUID
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
+
+# >>>>>> CRITICAL WORKAROUND RE-IMPLEMENTED <<<<<<
+echo "Applying GRUB Cryptodisk Timeout Workaround (GRUB_CRYPTODISK_TIMEOUT=120)..."
+echo "GRUB_CRYPTODISK_TIMEOUT=120" >> /etc/default/grub
+# >>>>>> END OF WORKAROUND <<<<<<
 
 # Fix for 266 error: Ensure GRUB directory exists
 echo "Creating /boot/grub directory explicitly..."
@@ -174,17 +171,12 @@ mkdir -p /boot/grub
 echo "Generating final grub.cfg..."
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# >>>>> STABILITY DELAY 2 <<<<<
-echo "Waiting 2 seconds before grub-install..."
-sleep 2
-# >>>>> END OF STABILITY DELAY 2 <<<<<
-
-# Install GRUB (UEFI standard)
+# >>>>> GRUB INSTALL WITH --boot-directory (Kept for correctness) <<<<<<
+echo "Installing GRUB with --boot-directory=/boot flag..."
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void --boot-directory=/boot
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
-# Re-writing fstab with the root entry using the device mapper name and the EFI partition UUID
 cat > /etc/fstab <<FSTAB_EOF
 # <file system> <dir> <type> <options> <dump> <pass>
 UUID=\$(blkid -o value -s UUID "$EFI_PARTITION") /boot/efi vfat defaults 0 0
@@ -202,7 +194,6 @@ EOF
 # 9. Unmount and Reboot
 sleep 5
 echo "Unmounting virtual and physical filesystems..."
-# Unmount virtual filesystems first
 for dir in dev proc sys; do
     umount -l /mnt/$dir || true
 done
@@ -217,10 +208,10 @@ select choice in "Reboot" "Stay in live environment"; do
     "Reboot")
       echo "Rebooting..."
       reboot
-      break;; # Exit the select loop
+      break;; 
     "Stay in live environment")
       echo "Staying in live environment."
-      break;; # Exit the select loop
+      break;; 
     *)
       echo "Invalid choice. Please try again."
       ;;
