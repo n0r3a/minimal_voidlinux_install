@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Configuration: UEFI (GPT), luks1, xfs (musl)
+# Configuration: UEFI (GPT), luks1, xfs (musl) - Single Encrypted Partition
 
 # --- Variables ---
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
@@ -79,14 +79,14 @@ echo "Formatting EFI partition $EFI_PARTITION..."
 mkfs.vfat -F 32 "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # 4. Encrypted partition configuration (using LUKS1)
-echo "Encrypting $ROOT_PARTITION with LUKS1..."
+echo "Encrypting $ROOT_PARTITION with LUKS1 (Root volume including /boot)..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
 # 5. Create filesystems
-echo "Creating XFS filesystem on decrypted volume..."
+echo "Creating XFS filesystem on decrypted volume (/ and /boot)..."
 mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
 
 # 6. System install preparation
@@ -146,15 +146,19 @@ echo 'install_items+=" /boot/volume.key /etc/crypttab "' > /etc/dracut.conf.d/10
 
 # Configure GRUB
 echo "Configuring GRUB..."
-# Set GRUB to enable cryptodisk support (essential for keyfile unlock)
-echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
+# Set GRUB to enable cryptodisk support (ESSENTIAL for /boot encryption)
+echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 # Set the kernel command line to unlock the volume using its UUID
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
+# >>>>>> START OF GRUB TIMEOUT FIX (Suppressing "read or write outside of disk" error) <<<<<<
+echo "Applying GRUB Cryptodisk Timeout Fix (GRUB_CRYPTODISK_TIMEOUT=120)..."
+# Adding a timeout to allow GRUB's I/O system to settle, which suppresses the non-fatal error.
+echo "GRUB_CRYPTODISK_TIMEOUT=120" >> /etc/default/grub
+# >>>>>> END OF GRUB TIMEOUT FIX <<<<<<
+
 # Install GRUB (UEFI standard)
-echo "Installing GRUB with explicit disk module (fixes boundary errors)..."
-# ADDED --disk-module=part_gpt TO ENSURE PROPER GPT PARTITION AWARENESS
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void --disk-module=part_gpt
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
