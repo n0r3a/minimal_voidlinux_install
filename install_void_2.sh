@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Configuration: uefi, luks1, xfs (musl)
+# Configuration: UEFI (GPT), luks1, xfs (musl)
 
 # --- Variables ---
-REPO_URL="https://repo-default.voidlinux.org/current/musl" # Switched to musl
+REPO_URL="https://repo-default.voidlinux.org/current/musl" 
 LUKS_NAME_ROOT="luks_void"
 
 # --- Function to handle errors ---
@@ -14,12 +14,11 @@ error_exit() {
 
 # --- Get user input for variables ---
 get_user_input() {
-  read -p "Enter the disk you want to use (e.g., /dev/vda): " DISK
+  read -p "Enter the disk you want to use (e.g., /dev/vda or /dev/nvme0n1): " DISK
   if [[ ! -b "$DISK" ]]; then
     error_exit "Invalid disk device: $DISK"
   fi
   
-  # VOLUME_PASSWORD is used for LUKS format/key slot 0 and adding the keyfile
   read -s -p "Enter the passphrase for the encrypted disk: " VOLUME_PASSWORD
   echo ""
   read -s -p "Re-enter the passphrase for the encrypted disk: " VOLUME_PASSWORD_CONFIRM
@@ -28,7 +27,6 @@ get_user_input() {
     error_exit "LUKS Passwords do not match."
   fi
   
-  # ROOT_PASSWORD is used for the user account password
   read -s -p "Enter the root password: " ROOT_PASSWORD
   echo ""
   read -s -p "Re-enter the root password: " ROOT_PASSWORD_CONFIRM
@@ -38,19 +36,19 @@ get_user_input() {
   fi
 }
 
-# --- Create partitions using sfdisk ---
+# --- Create partitions using sfdisk (GPT/UEFI) ---
 create_partitions_sfdisk() {
-  echo "Creating partitions with sfdisk..."
+  echo "Creating partitions with sfdisk (GPT layout)..."
 
   efi_part_size="250M"
 
   # wipe disk
   wipefs -af "$DISK" || error_exit "wipefs failed"
 
-  # format disk as GPT, create efi partition and a 2nd partition with the remaining disk space
+  # format disk as GPT, create efi partition (type U, bootable) and a 2nd partition for LUKS (type L)
   printf 'label: gpt\n, %s, U, *\n, , L\n' "$efi_part_size" | sfdisk -q "$DISK" || error_exit "sfdisk failed"
 
-  # Determine partition names based on disk type
+  # Determine partition names
   if [[ "$DISK" == *"/nvme"* ]]; then
     EFI_PARTITION="${DISK}p1"
     ROOT_PARTITION="${DISK}p2"
@@ -78,11 +76,10 @@ create_partitions_sfdisk
 
 # 3. Format EFI partition
 echo "Formatting EFI partition $EFI_PARTITION..."
-mkfs.vfat "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
+mkfs.vfat -F 32 "$EFI_PARTITION" || error_exit "mkfs.vfat failed"
 
 # 4. Encrypted partition configuration (using LUKS1)
 echo "Encrypting $ROOT_PARTITION with LUKS1..."
-# Switched to --type luks1 as requested
 echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
@@ -102,13 +99,17 @@ echo "Copying XBPS RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
-echo "Installing base system and necessary packages (musl)..."
-# Included dracut and grub-x86_64-efi
-xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
+## IMPORTANT FIX: Explicitly setting the repository configuration
+echo "Setting XBPS repository configuration in /mnt..."
+mkdir -p /mnt/etc/xbps.d
+echo "repository=$REPO_URL" > /mnt/etc/xbps.d/00-repository-main.conf || error_exit "Writing XBPS config failed"
+
+echo "Installing base system and necessary packages (musl, UEFI grub)..."
+# Using the configured repository inside the /mnt chroot
+xbps-install -Sy -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
 
 # 7. Initial configuration (used only for structure by xgenfstab)
 echo "Generating initial fstab..."
-# We will fix this inside chroot, but run it here first
 xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 
 # Get the UUID of the LUKS partition for crypttab and grub
@@ -155,12 +156,12 @@ echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 # Set the kernel command line to unlock the volume using its UUID
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
-# Install GRUB (UEFI standard for Void)
+# Install GRUB (UEFI standard)
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
-# Re-writing fstab with correct entries using device mapper name for root
+# Re-writing fstab with the root entry using the device mapper name and the EFI partition UUID
 cat > /etc/fstab <<FSTAB_EOF
 # <file system> <dir> <type> <options> <dump> <pass>
 UUID=\$(blkid -o value -s UUID "$EFI_PARTITION") /boot/efi vfat defaults 0 0
@@ -178,7 +179,6 @@ EOF
 # 9. Unmount and Reboot
 sleep 5
 echo "Unmounting filesystems..."
-# Use umount -lR /mnt (lazy unmount) if regular umount fails due to busy files
 umount -R /mnt || umount -lR /mnt || error_exit "umount failed"
 
 echo "Installation complete."
