@@ -20,7 +20,7 @@ I made this script because I prefer a simple setup on my laptop. I like "simple"
 ## Quick start guide
 
 1.  **Download Void Linux:** Get the Void Linux x86_64 musl or glibc live environment from the Void Linux website
-2.  **Boot the Live Environment:** Boot your computer from the live environment and log in as root and connect to the internet. See instructions [here](https://docs.voidlinux.org/config/network/index.html) 
+2.  **Boot the Live Environment:** Boot your computer from the live environment, log in as root and connect to the internet. See instructions [here](https://docs.voidlinux.org/config/network/index.html) 
 3.  **Install Needed Packages:** after root login run:
     ```bash
     xbps-install -S git parted
