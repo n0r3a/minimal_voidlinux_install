@@ -161,6 +161,11 @@ echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 # Set the kernel command line to unlock the volume using its UUID
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
+# >>>>> CRITICAL FIX FOR 266 ERROR <<<<<
+echo "Creating /boot/grub directory explicitly to avoid grub-mkconfig error..."
+mkdir -p /boot/grub
+# >>>>> END OF CRITICAL FIX <<<<<
+
 # Final step before install: Ensure GRUB configuration is generated
 echo "Generating final grub.cfg..."
 grub-mkconfig -o /boot/grub/grub.cfg
