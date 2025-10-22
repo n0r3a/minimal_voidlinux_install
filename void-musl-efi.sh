@@ -1,4 +1,4 @@
-#!/bin/bashboot
+#!/bin/bash
 
 # Configuration: UEFI (GPT), luks1, ext4 (musl) - Single Encrypted Partition with Encrypted /boot
 
