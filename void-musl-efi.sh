@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bashboot
 
 # Configuration: UEFI (GPT), luks1, ext4 (musl) - Single Encrypted Partition with Encrypted /boot
 
@@ -153,11 +153,6 @@ echo 'install_items+=" /boot/volume.key /etc/crypttab "' > /etc/dracut.conf.d/10
 echo "Configuring GRUB..."
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
-
-# >>>>>> CRITICAL WORKAROUND: GRUB_CRYPTODISK_TIMEOUT <<<<<<
-echo "Applying GRUB Cryptodisk Timeout Workaround (GRUB_CRYPTODISK_TIMEOUT=120)..."
-echo "GRUB_CRYPTODISK_TIMEOUT=120" >> /etc/default/grub
-# >>>>>> END OF WORKAROUND <<<<<<
 
 # Fix for 266 error: Ensure GRUB directory exists
 echo "Creating /boot/grub directory explicitly..."
