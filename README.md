@@ -5,7 +5,7 @@ This is a simple script to install void linux musl on uefi x86_64 systems. It's 
 **Important notes before running this script:**
 
 * This script doesn't use lvm
-* File system is xfs
+* File system is ext4
 * You'll need `git` and `parted` installed before running the script
 * No swap
 * Partitions are: **/boot/efi** and **/**
