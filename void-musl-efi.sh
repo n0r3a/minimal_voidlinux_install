@@ -85,6 +85,11 @@ echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" |
 echo "Opening root encrypted volume..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
+# >>>>> STABILITY DELAY 1 <<<<<
+echo "Waiting 2 seconds for LUKS device mapper to stabilize..."
+sleep 2 
+# >>>>> END OF STABILITY DELAY 1 <<<<<
+
 # 5. Create filesystems
 echo "Creating XFS filesystem on decrypted volume (/ and /boot)..."
 mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
@@ -161,17 +166,21 @@ echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 # Set the kernel command line to unlock the volume using its UUID
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
-# >>>>> CRITICAL FIX FOR 266 ERROR <<<<<
-echo "Creating /boot/grub directory explicitly to avoid grub-mkconfig error..."
+# Fix for 266 error: Ensure GRUB directory exists
+echo "Creating /boot/grub directory explicitly..."
 mkdir -p /boot/grub
-# >>>>> END OF CRITICAL FIX <<<<<
 
 # Final step before install: Ensure GRUB configuration is generated
 echo "Generating final grub.cfg..."
 grub-mkconfig -o /boot/grub/grub.cfg
 
+# >>>>> STABILITY DELAY 2 <<<<<
+echo "Waiting 2 seconds before grub-install..."
+sleep 2
+# >>>>> END OF STABILITY DELAY 2 <<<<<
+
 # Install GRUB (UEFI standard)
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void --boot-directory=/boot
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
