@@ -3,7 +3,6 @@
 # Configuration: UEFI (GPT), luks1, xfs (musl)
 
 # --- Variables ---
-# REVERTED: Using the standard Musl repository path. The fix is now in the install command.
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
 LUKS_NAME_ROOT="luks_void"
 
@@ -101,7 +100,7 @@ mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
 echo "Installing base system and necessary packages (musl, UEFI grub)..."
-# THE DEFINITIVE FIX: Setting XBPS_ARCH forces the correct repodata lookup (x86_64-musl-repodata)
+# Setting XBPS_ARCH ensures the correct Musl repodata is looked up
 env XBPS_ARCH=x86_64-musl xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-x86_64-efi dracut || error_exit "xbps-install failed"
 
 # 7. Initial configuration (used only for structure by xgenfstab)
@@ -153,7 +152,9 @@ echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
 # Install GRUB (UEFI standard)
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
+echo "Installing GRUB with explicit disk module (fixes boundary errors)..."
+# ADDED --disk-module=part_gpt TO ENSURE PROPER GPT PARTITION AWARENESS
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void --disk-module=part_gpt
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
