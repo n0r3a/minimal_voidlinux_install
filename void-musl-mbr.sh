@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Configuration: MBR (legacy boot), luks1, xfs (musl)
+# Configuration: MBR (DOS), luks1, ext4 (musl) - Single Encrypted Partition with Encrypted /boot
 
 # --- Variables ---
-# REPO URL: Standard Musl path, combined with XBPS_ARCH fix.
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
 LUKS_NAME_ROOT="luks_void"
 
@@ -15,7 +14,7 @@ error_exit() {
 
 # --- Get user input for variables ---
 get_user_input() {
-  read -p "Enter the disk you want to use (e.g., /dev/sda): " DISK
+  read -p "Enter the disk you want to use (e.g., /dev/vda or /dev/sda): " DISK
   if [[ ! -b "$DISK" ]]; then
     error_exit "Invalid disk device: $DISK"
   fi
@@ -37,21 +36,26 @@ get_user_input() {
   fi
 }
 
-# --- Create partitions using sfdisk (MBR) ---
+# --- Create partitions using sfdisk (MBR/Legacy BIOS) ---
 create_partitions_sfdisk() {
   echo "Creating partitions with sfdisk (MBR/DOS layout)..."
 
-  # wipe disk
+  # Wipe disk
   wipefs -af "$DISK" || error_exit "wipefs failed"
 
-  # format disk as DOS (MBR), create a single primary partition using remaining space
-  # Type 83 (Linux), set as bootable (*)
+  # Format disk as MBR (DOS), create a single partition using the rest of the space, 
+  # set type to Linux (83), and mark it bootable (*).
   printf 'label: dos\n, , 83, *\n' | sfdisk -q "$DISK" || error_exit "sfdisk failed"
 
-  # Determine partition names
+  # Determine partition name (Assuming a single primary partition)
   if [[ "$DISK" == *"/nvme"* ]]; then
+    # NVMe partitions typically use 'p' separator (e.g., /dev/nvme0n1p1)
+    ROOT_PARTITION="${DISK}p1"
+  elif [[ "$DISK" == *"/mmcblk"* ]]; then
+    # eMMC/SD partitions typically use 'p' separator (e.g., /dev/mmcblk0p1)
     ROOT_PARTITION="${DISK}p1"
   else
+    # Standard disk partitions (e.g., /dev/sda1)
     ROOT_PARTITION="${DISK}1"
   fi
 
@@ -72,31 +76,42 @@ get_user_input
 # 2. Create partitions using sfdisk
 create_partitions_sfdisk
 
-# 3. Encrypted partition configuration (using LUKS1)
-echo "Encrypting $ROOT_PARTITION with LUKS1..."
+# 3. Format EFI partition (REMOVED: Not needed for MBR)
+
+# 4. Encrypted partition configuration (using LUKS1)
+echo "Encrypting $ROOT_PARTITION with LUKS1 (Root volume including /boot)..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" || error_exit "cryptsetup luksFormat failed"
 
 echo "Opening root encrypted volume..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
-# 4. Create filesystems
-echo "Creating XFS filesystem on decrypted volume..."
-mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
+# 5. Create filesystems
+echo "Creating EXT4 filesystem on decrypted volume (/ and /boot)..."
+mkfs.ext4 -L root -F "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.ext4 root failed"
 
-# 5. System install preparation
-echo "Mounting root filesystem..."
+# 6. System install preparation
+echo "Mounting filesystems..."
+# Mount the decrypted LUKS volume directly to /mnt
 mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
-# NOTE: No separate /boot/efi or /boot mount required for MBR/FDE
+# No separate /boot/efi mount is required for MBR
+
+# >>>>> CRITICAL STEP FOR CHROOT DEVICE MAPPING FIX <<<<<
+echo "Binding virtual filesystems..."
+for dir in dev proc sys; do
+    mkdir -p /mnt/$dir
+    mount --rbind /$dir /mnt/$dir
+done
+# >>>>> END OF CRITICAL STEP <<<<<
 
 echo "Copying XBPS RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
 
+# Note: Using grub-i386-pc instead of grub-x86_64-efi for Legacy BIOS/MBR
 echo "Installing base system and necessary packages (musl, MBR grub)..."
-# Setting XBPS_ARCH ensures the correct Musl repodata is looked up
-env XBPS_ARCH=x86_64-musl xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub dracut || error_exit "xbps-install failed"
+env XBPS_ARCH=x86_64-musl xbps-install -Sy -R "$REPO_URL" -r /mnt base-system cryptsetup grub-i386-pc dracut || error_exit "xbps-install failed"
 
-# 6. Initial configuration (used only for structure by xgenfstab)
+# 7. Initial configuration
 echo "Generating initial fstab..."
 xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 
@@ -104,10 +119,10 @@ xgenfstab -U /mnt > /mnt/etc/fstab || error_exit "xgenfstab failed"
 LUKS_PART_UUID=$(blkid -o value -s UUID "$ROOT_PARTITION")
 echo "Root LUKS partition UUID: $LUKS_PART_UUID"
 
-# 7. Enter chroot for final configuration
+# 8. Enter chroot for final configuration
 echo "Entering chroot for system configuration..."
 xchroot /mnt /bin/bash <<EOF || error_exit "xchroot failed"
-set -e # Exit immediately if a command exits with a non-zero status
+set -e 
 
 # Set root password
 echo "Setting root password..."
@@ -122,39 +137,36 @@ echo "tiny_void" > /etc/hostname
 # Keyfile generation and configuration
 echo "Configuring LUKS keyfile for boot..."
 dd bs=1 count=64 if=/dev/urandom of=/boot/volume.key
-# Use the known LUKS password to add the keyfile to an empty slot
 echo "$VOLUME_PASSWORD" | cryptsetup luksAddKey "$ROOT_PARTITION" /boot/volume.key || echo "cryptsetup addkey failed (requires existing password slot)"
-# Set permissions to 000 as per Void Linux FDE documentation
 chmod 000 /boot/volume.key
 chmod -R g-rwx,o-rwx /boot
 
-# Configure crypttab (use UUID for robustness)
+# Configure crypttab
 echo "Configuring /etc/crypttab..."
-# Use UUID of the LUKS partition
 echo "$LUKS_NAME_ROOT UUID=$LUKS_PART_UUID /boot/volume.key luks" > /etc/crypttab
 
-# Configure dracut to include the keyfile and crypttab in the initramfs
+# Configure dracut
 echo "Configuring dracut..."
 echo 'install_items+=" /boot/volume.key /etc/crypttab "' > /etc/dracut.conf.d/10-crypt.conf
 
 # Configure GRUB
 echo "Configuring GRUB..."
-# Set GRUB to enable cryptodisk support (essential for keyfile unlock)
-echo "GRUB_ENABLE_CRYPTODISK=y" > /etc/default/grub
-# Set the kernel command line to unlock the volume using its UUID
+echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
-# Install GRUB (MBR standard)
-echo "Installing GRUB with explicit disk module (fixes boundary errors)..."
-# Using --disk-module=part_msdos for MBR (DOS) partition awareness
-grub-install "$DISK" --disk-module=part_msdos
+# Final step before install: Ensure GRUB configuration is generated
+echo "Generating final grub.cfg..."
+grub-mkconfig -o /boot/grub/grub.cfg
 
-# Final /etc/fstab correction
+# Install GRUB (Legacy BIOS standard)
+echo "Installing GRUB to MBR on $DISK..."
+grub-install --target=i386-pc "$DISK"
+
+# Final /etc/fstab correction (Only the root filesystem is needed)
 echo "Correcting /etc/fstab..."
-# Re-writing fstab with the single root entry using the device mapper name
 cat > /etc/fstab <<FSTAB_EOF
 # <file system> <dir> <type> <options> <dump> <pass>
-/dev/mapper/$LUKS_NAME_ROOT / xfs defaults 0 0
+/dev/mapper/$LUKS_NAME_ROOT / ext4 defaults 0 0 
 FSTAB_EOF
 
 # Reconfigure all packages to build the initramfs
@@ -165,25 +177,30 @@ echo "Chroot configuration complete."
 exit
 EOF
 
-# 8. Unmount and Reboot
+# 9. Unmount and Reboot
 sleep 5
-echo "Unmounting filesystems..."
+echo "Unmounting virtual and physical filesystems..."
+for dir in dev proc sys; do
+    umount -l /mnt/$dir || true
+done
+
 umount -R /mnt || umount -lR /mnt || error_exit "umount failed"
 
 echo "Installation complete."
 
-# 9. Select reboot or stay
+# 10. Select reboot or stay
 select choice in "Reboot" "Stay in live environment"; do
   case $choice in
     "Reboot")
       echo "Rebooting..."
       reboot
-      break;; # Exit the select loop
+      break;; 
     "Stay in live environment")
       echo "Staying in live environment."
-      break;; # Exit the select loop
+      break;; 
     *)
       echo "Invalid choice. Please try again."
       ;;
   esac
+  
 done
