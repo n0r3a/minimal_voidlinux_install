@@ -95,6 +95,16 @@ mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot/efi
 mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
 
+# >>>>> CRITICAL STEP FOR CHROOT DEVICE MAPPING FIX <<<<<
+# This ensures the new environment has access to device files needed by GRUB/Dracut,
+# mirroring a fully initialized manual environment.
+echo "Binding virtual filesystems..."
+for dir in dev proc sys; do
+    mkdir -p /mnt/$dir
+    mount --rbind /$dir /mnt/$dir
+done
+# >>>>> END OF CRITICAL STEP <<<<<
+
 echo "Copying XBPS RSA keys..."
 mkdir -p /mnt/var/db/xbps/keys
 cp -a /var/db/xbps/keys/* /mnt/var/db/xbps/keys/ || error_exit "cp keys failed"
@@ -151,11 +161,9 @@ echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 # Set the kernel command line to unlock the volume using its UUID
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
-# >>>>>> START OF GRUB TIMEOUT FIX (Suppressing "read or write outside of disk" error) <<<<<<
-echo "Applying GRUB Cryptodisk Timeout Fix (GRUB_CRYPTODISK_TIMEOUT=120)..."
-# Adding a timeout to allow GRUB's I/O system to settle, which suppresses the non-fatal error.
-echo "GRUB_CRYPTODISK_TIMEOUT=120" >> /etc/default/grub
-# >>>>>> END OF GRUB TIMEOUT FIX <<<<<<
+# Final step before install: Ensure GRUB configuration is generated
+echo "Generating final grub.cfg..."
+grub-mkconfig -o /boot/grub/grub.cfg
 
 # Install GRUB (UEFI standard)
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
@@ -179,7 +187,12 @@ EOF
 
 # 9. Unmount and Reboot
 sleep 5
-echo "Unmounting filesystems..."
+echo "Unmounting virtual and physical filesystems..."
+# Unmount virtual filesystems first
+for dir in dev proc sys; do
+    umount -l /mnt/$dir || true
+done
+
 umount -R /mnt || umount -lR /mnt || error_exit "umount failed"
 
 echo "Installation complete."
