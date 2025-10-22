@@ -35,11 +35,11 @@ I made this script because I prefer a simple setup on my laptop. I like "simple"
     ```
 6.  **Make the Script Executable:** Make the installation script executable:
     ```bash
-    chmod +x install_void_musl.sh
+    chmod +x void_linux_efi.sh
     ```
 7.  **Run the Script:** Run the installation script:
     ```bash
-    ./install_void_musl.sh
+    ./void_linux_efi.sh
     ```
 8.  **Enter LUKS Passphrase:** You'll be asked to enter a passphrase for LUKS encryption. Type it twice to confirm
 9.  **Set Root Password:** Enter a password for the root user. Type it twice to confirm
