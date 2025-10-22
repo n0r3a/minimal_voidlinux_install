@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Configuration: UEFI (GPT), luks1, xfs (musl) - Single Encrypted Partition with Timeout Workaround
+# Configuration: UEFI (GPT), luks1, xfs (musl) - Single Encrypted Partition with Standard Workaround
 
 # --- Variables ---
 REPO_URL="https://repo-default.voidlinux.org/current/musl" 
@@ -85,11 +85,6 @@ echo "$VOLUME_PASSWORD" | cryptsetup luksFormat --type luks1 "$ROOT_PARTITION" |
 echo "Opening root encrypted volume..."
 echo "$VOLUME_PASSWORD" | cryptsetup luksOpen "$ROOT_PARTITION" "$LUKS_NAME_ROOT" || error_exit "cryptsetup luksOpen failed"
 
-# >>>>> STABILITY DELAY 1 (Kept for robustness) <<<<<
-echo "Waiting 2 seconds for LUKS device mapper to stabilize..."
-sleep 2 
-# >>>>> END OF STABILITY DELAY 1 <<<<<
-
 # 5. Create filesystems
 echo "Creating XFS filesystem on decrypted volume (/ and /boot)..."
 mkfs.xfs -L root "/dev/mapper/$LUKS_NAME_ROOT" || error_exit "mkfs.xfs root failed"
@@ -100,7 +95,7 @@ mount "/dev/mapper/$LUKS_NAME_ROOT" /mnt || error_exit "mount root failed"
 mkdir -p /mnt/boot/efi
 mount "$EFI_PARTITION" /mnt/boot/efi || error_exit "mount efi failed"
 
-# >>>>> CRITICAL STEP FOR CHROOT DEVICE MAPPING FIX (Kept for correctness) <<<<<
+# >>>>> CRITICAL STEP FOR CHROOT DEVICE MAPPING FIX <<<<<
 echo "Binding virtual filesystems..."
 for dir in dev proc sys; do
     mkdir -p /mnt/$dir
@@ -158,7 +153,7 @@ echo "Configuring GRUB..."
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
 
-# >>>>>> CRITICAL WORKAROUND RE-IMPLEMENTED <<<<<<
+# >>>>>> CRITICAL WORKAROUND: GRUB_CRYPTODISK_TIMEOUT <<<<<<
 echo "Applying GRUB Cryptodisk Timeout Workaround (GRUB_CRYPTODISK_TIMEOUT=120)..."
 echo "GRUB_CRYPTODISK_TIMEOUT=120" >> /etc/default/grub
 # >>>>>> END OF WORKAROUND <<<<<<
@@ -171,9 +166,9 @@ mkdir -p /boot/grub
 echo "Generating final grub.cfg..."
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# >>>>> GRUB INSTALL WITH --boot-directory (Kept for correctness) <<<<<<
-echo "Installing GRUB with --boot-directory=/boot flag..."
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void --boot-directory=/boot
+# Install GRUB (UEFI standard) - Reverted to simple command
+echo "Installing GRUB (UEFI standard)..."
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Void
 
 # Final /etc/fstab correction
 echo "Correcting /etc/fstab..."
