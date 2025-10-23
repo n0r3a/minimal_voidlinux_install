@@ -102,9 +102,9 @@ mkdir -p /boot/grub || error_exit "mkdir /boot/grub failed"
 
 echo "ensuring dracut has luks modules..."
 
-echo "configuring GRUB for full disk encryption..."
+echo "configuring GRUB for full disk encryption (fixing double password prompt)..."
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
-echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.uuid=$LUKS_PART_UUID\"" >> /etc/default/grub
+echo "GRUB_CMDLINE_LINUX_DEFAULT=\"rd.luks.name=$LUKS_PART_UUID=$LUKS_NAME_ROOT root=/dev/mapper/$LUKS_NAME_ROOT\"" >> /etc/default/grub
 
 echo "generating final grub.cfg..."
 grub-mkconfig -o /boot/grub/grub.cfg
